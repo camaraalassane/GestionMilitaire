@@ -20,6 +20,25 @@ class EligibiliteController extends Controller
     const CACHE_TAG = 'eligibilites';
 
     /**
+     * GRADES ÉLIGIBLES POUR LES CONTRATS (identique à AlerteController)
+     * Sous-officiers jusqu'à 1ère classe uniquement
+     */
+    private function getGradesEligiblesContrat(): array
+    {
+        return [
+            'Soldat 2',
+            'Soldat 1',
+            'Caporal',
+            'Caporal-chef',
+            'Sergent',
+            'Sergent-Chef',
+            'Adjudant',
+            'Adjudant-Chef',
+            'Major'
+        ];
+    }
+
+    /**
      * Affiche la page des éligibilités avec les listes de filtres.
      */
     public function index(): \Inertia\Response
@@ -237,6 +256,9 @@ class EligibiliteController extends Controller
         $allRetraites = [];
         $allContrats = [];
 
+        // 🔥 Récupérer la liste des grades éligibles pour les contrats
+        $gradesEligibles = $this->getGradesEligiblesContrat();
+
         foreach ($militaires as $militaire) {
             // Promotions
             if (empty($type) || $type === 'promotions') {
@@ -256,9 +278,9 @@ class EligibiliteController extends Controller
                 $allRetraites = array_merge($allRetraites, $retraites);
             }
 
-            // Contrats
+            // 🔥 CONTRATS - Mêmes conditions que AlerteController
             if (empty($type) || $type === 'contrats') {
-                $contrats = $this->checkContratsOptimized($militaire, $alertesContrat);
+                $contrats = $this->checkContratsARenouveler($militaire, $gradesEligibles);
                 $allContrats = array_merge($allContrats, $contrats);
             }
         }
@@ -302,7 +324,73 @@ class EligibiliteController extends Controller
     }
 
     /**
-     * Vérification des contrats optimisée.
+     * 🔥 METHODE CORRIGEE : Récupère uniquement les militaires qui DOIVENT renouveler
+     * Conditions IDENTIQUES à AlerteController :
+     * - Grade éligible (sous-officiers)
+     * - 5 ans de service ou plus
+     * - N'a PAS encore renouvelé (pas de contrat avec statut 'renouvele')
+     */
+    private function checkContratsARenouveler(Militaire $militaire, array $gradesEligibles): array
+    {
+        $result = [];
+
+        // 🔥 1. Vérifier si le grade est éligible (comme dans AlerteController)
+        if (!in_array($militaire->grade_actuel, $gradesEligibles)) {
+            return $result;
+        }
+
+        // 🔥 2. Vérifier si le militaire a un contrat actif
+        $contratActif = $militaire->contratActif;
+
+        if (!$contratActif) {
+            return $result;
+        }
+
+        // 🔥 3. Calculer les années de service (comme dans AlerteController)
+        $anneesService = 0;
+        if ($militaire->date_entree_service) {
+            $anneesService = floor($militaire->date_entree_service->diffInYears(now()));
+        }
+
+        // 🔥 4. Ne garder que ceux qui ont 5 ans ou plus
+        if ($anneesService < 5) {
+            return $result;
+        }
+
+        // 🔥 5. EXCLURE ceux qui ont déjà renouvelé (contrat avec statut 'renouvele')
+        $contratRenouvele = $militaire->contrats()
+            ->where('statut', 'renouvele')
+            ->exists();
+
+        if ($contratRenouvele) {
+            return $result; // Déjà renouvelé, on ne l'affiche pas
+        }
+
+        $statutContrat = $contratActif ? 'actif' : 'sans contrat';
+        $dateEcheance = $contratActif?->date_fin?->format('Y-m-d');
+
+        // Message personnalisé
+        $message = "Renouvellement requis - {$anneesService} ans de service";
+
+        $result[] = [
+            'militaire' => [
+                'id' => $militaire->id,
+                'matricule' => $militaire->matricule,
+                'nom' => $militaire->nom,
+                'prenom' => $militaire->prenom,
+                'grade_actuel' => $militaire->grade_actuel,
+            ],
+            'annees_service' => $anneesService,
+            'statut_contrat' => $statutContrat,
+            'date_echeance' => $dateEcheance,
+            'message' => $message,
+        ];
+
+        return $result;
+    }
+
+    /**
+     * Vérification des contrats optimisée (avec alerte) - pour l'affichage dans la page
      */
     private function checkContratsOptimized(Militaire $militaire, Collection $alertesContrat): array
     {
@@ -658,7 +746,7 @@ class EligibiliteController extends Controller
     }
 
     /**
-     * Exporte les éligibilités vers Excel.
+     * 🔥 EXPORT - Version corrigée pour récupérer les contrats à renouveler
      */
     public function export(Request $request): \Symfony\Component\HttpFoundation\BinaryFileResponse|\Illuminate\Http\RedirectResponse
     {
@@ -667,9 +755,14 @@ class EligibiliteController extends Controller
         $grade = $request->input('grade', '');
         $exportAll = $request->input('export_all', false);
 
-        $eligibilites = $this->getEligibilites($type, $formation, $grade, 1, 99999);
+        // 🔥 Récupérer les données sans cache pour l'export
+        $eligibilites = $this->computeEligibilites($type, $formation, $grade);
 
-        $allData = $eligibilites['all_data'] ?? [];
+        $allData = $eligibilites;
+
+        if (empty($allData)) {
+            return redirect()->back()->with('error', 'Aucune donnée à exporter.');
+        }
 
         if (!$exportAll && !empty($type)) {
             $filteredData = [];
@@ -691,7 +784,7 @@ class EligibiliteController extends Controller
         }
 
         if ($totalItems === 0) {
-            return redirect()->back()->with('error', 'Aucune donnée à exporter.');
+            return redirect()->back()->with('error', "Aucune donnée à exporter pour le type '{$type}'.");
         }
 
         $typeName = $type ?: 'all';

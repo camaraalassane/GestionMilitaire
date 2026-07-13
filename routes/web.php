@@ -7,6 +7,7 @@ use App\Http\Controllers\MilitaireController;
 use App\Http\Controllers\GradeController;
 use App\Http\Controllers\AlerteController;
 use App\Http\Controllers\EligibiliteController;
+use App\Http\Controllers\ContratController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -34,6 +35,20 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/alertes', [AlerteController::class, 'index'])->name('alertes.index');
     Route::post('/alertes/{alerte}/marquer-vue', [AlerteController::class, 'marquerVue'])->name('alertes.marquer-vue');
     Route::post('/alertes/marquer-tout-vue', [AlerteController::class, 'marquerToutVue'])->name('alertes.marquer-tout-vue');
+    Route::post('/alertes/check-renouvellements', [AlerteController::class, 'checkRenouvellements'])->name('alertes.check-renouvellements');
+    Route::post('/alertes/generer', [AlerteController::class, 'genererAlertes'])->name('alertes.generer');
+});
+
+// Routes pour les contrats
+Route::middleware(['auth'])->group(function () {
+    Route::get('/contrats', [ContratController::class, 'index'])->name('contrats.index');
+    Route::post('/contrats', [ContratController::class, 'store'])->name('contrats.store');
+    Route::get('/contrats/{contrat}', [ContratController::class, 'show'])->name('contrats.show');
+    Route::get('/contrats/historique/{militaire}', [ContratController::class, 'historique'])->name('contrats.historique');
+    Route::post('/contrats/check-alerts', [ContratController::class, 'checkAndGenerateAlerts'])->name('contrats.check-alerts');
+    Route::get('/contrats/stats', [ContratController::class, 'stats'])->name('contrats.stats');
+    Route::post('/contrats/auto-renew-all', [ContratController::class, 'autoRenewAll'])->name('contrats.auto-renew-all');
+    Route::post('/contrats/annuler-renouvellement', [ContratController::class, 'annulerRenouvellement'])->name('contrats.annuler-renouvellement');
 });
 
 // Routes pour les grades
@@ -56,7 +71,7 @@ Route::middleware(['auth'])->group(function () {
 
 // Routes pour les militaires
 Route::middleware(['auth'])->group(function () {
-    // ⚠️ Routes spécifiques AVANT les routes avec paramètres {militaire}
+    // Routes spécifiques AVANT les routes avec paramètres {militaire}
     Route::get('/militaires/export', [MilitaireController::class, 'export'])->name('militaires.export');
     Route::get('/militaires/export/template', [MilitaireController::class, 'exportTemplate'])->name('militaires.export.template');
     Route::get('/militaires/import/form', [MilitaireController::class, 'importForm'])->name('militaires.import');
@@ -78,6 +93,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/eligibilites/stats', [EligibiliteController::class, 'getStats'])->name('eligibilites.stats');
     Route::get('/eligibilites/filtered', [EligibiliteController::class, 'getFiltered'])->name('eligibilites.filtered');
     Route::get('/eligibilites/export', [EligibiliteController::class, 'export'])->name('eligibilites.export');
+    Route::post('/eligibilites/invalidate-cache', [EligibiliteController::class, 'invalidateCache'])->name('eligibilites.invalidate-cache');
 });
 
 // Routes profil

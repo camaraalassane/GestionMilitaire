@@ -7,6 +7,7 @@ use App\Models\Militaire;
 use App\Models\Grade;
 use App\Models\Alerte;
 use App\Models\Certificat;
+use App\Models\Contrat;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Inertia\Inertia;
@@ -120,42 +121,49 @@ class MilitaireController extends Controller
         ]);
     }
 
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'matricule' => 'required|string|unique:militaires',
-            'nom' => 'required|string|max:100',
-            'prenom' => 'required|string|max:100',
-            'date_naissance' => 'required|date',
-            'date_entree_service' => 'required|date|before_or_equal:today',
-            'grade_actuel' => 'required|string',
-            'date_derniere_promotion' => 'nullable|date|before_or_equal:today',
-            'specialite' => 'nullable|string|max:200',
-            'position_actuelle' => 'nullable|string|max:255',
-            'fonction_passee' => 'nullable|string|max:255',
-            'fonction_actuelle' => 'nullable|string|max:255',
-            'a_permis_conduire' => 'boolean',
-        ]);
+   public function store(Request $request)
+{
+    $validated = $request->validate([
+        'matricule' => 'required|string|unique:militaires',
+        'nom' => 'required|string|max:100',
+        'prenom' => 'required|string|max:100',
+        'date_naissance' => 'required|date',
+        'date_entree_service' => 'required|date|before_or_equal:today',
+        'grade_actuel' => 'required|string',
+        'date_derniere_promotion' => 'nullable|date|before_or_equal:today',
+        'specialite' => 'nullable|string|max:200',
+        'position_actuelle' => 'nullable|string|max:255',
+        'fonction_passee' => 'nullable|string|max:255',
+        'fonction_actuelle' => 'nullable|string|max:255',
+        'a_permis_conduire' => 'boolean',
+    ]);
 
-        $data = $this->extractData($request);
-        $militaire = Militaire::create($data);
+    $data = $this->extractData($request);
+    $militaire = Militaire::create($data);
 
-        if ($request->has('certificats')) {
-            $this->syncCertificats($militaire, $request->certificats);
-        }
-
-        $militaire->load('certificats');
-        $this->verifierAlertes($militaire);
-
-        return redirect()->route('militaires.index')
-            ->with('success', 'Militaire ajouté avec succès.');
+    if ($request->has('certificats')) {
+        $this->syncCertificats($militaire, $request->certificats);
     }
+
+    $militaire->load('certificats');
+
+    // VÉRIFIER LES ALERTES (promotion, formation, retraite)
+    $this->verifierAlertes($militaire);
+
+    // 🔧 CRÉER UNIQUEMENT L'ALERTE CONTRAT (PAS DE CONTRAT)
+    $this->verifierAlerteContrat($militaire);
+
+    return redirect()->route('militaires.index')
+        ->with('success', 'Militaire ajouté avec succès.');
+}
 
     public function show(Militaire $militaire)
     {
         $militaire->load(['certificats', 'alertes' => function($q) {
             $q->orderBy('created_at', 'desc')->limit(10);
         }]);
+
+        $contratActif = $militaire->contrats()->where('statut', 'actif')->latest('date_debut')->first();
 
         $alertes = $militaire->alertes->map(fn ($alerte) => [
             'id' => $alerte->id,
@@ -204,7 +212,14 @@ class MilitaireController extends Controller
         return Inertia::render('militaires/show', [
             'militaire' => $militaireData,
             'certificats' => $certificats,
-            'alertes' => $alertes
+            'alertes' => $alertes,
+            'contratActif' => $contratActif ? [
+                'id' => $contratActif->id,
+                'date_debut' => $contratActif->date_debut?->format('d/m/Y'),
+                'date_fin' => $contratActif->date_fin?->format('d/m/Y'),
+                'duree_annees' => $contratActif->duree_annees,
+                'statut' => $contratActif->statut,
+            ] : null,
         ]);
     }
 
@@ -284,6 +299,8 @@ class MilitaireController extends Controller
         }
 
         $militaire->load('certificats');
+
+        // Vérifier les alertes (promotion, formation, retraite, contrat)
         $this->verifierAlertes($militaire);
 
         return redirect()->route('militaires.show', $militaire)
@@ -333,40 +350,34 @@ class MilitaireController extends Controller
         return Excel::download(new MilitairesExportTemplate(), 'modele_militaires.xlsx');
     }
 
-   /**
- * Exporte la liste des militaires en Excel avec filtres optionnels.
- */
-public function export(Request $request)
-{
-    $search = $request->input('search');
-    $grade = $request->input('grade');
-    $statut = $request->input('statut');
+    public function export(Request $request)
+    {
+        $search = $request->input('search');
+        $grade = $request->input('grade');
+        $statut = $request->input('statut');
 
-    // Log détaillé
-    \Log::info('📊 Export reçu - paramètres bruts :', $request->all());
+        \Log::info('📊 Export reçu - paramètres bruts :', $request->all());
 
-    // Nettoyage des valeurs "null" string
-    $search = ($search && $search !== 'null') ? $search : null;
-    $grade = ($grade && $grade !== 'null') ? $grade : null;
-    $statut = ($statut && $statut !== 'null') ? $statut : null;
+        $search = ($search && $search !== 'null') ? $search : null;
+        $grade = ($grade && $grade !== 'null') ? $grade : null;
+        $statut = ($statut && $statut !== 'null') ? $statut : null;
 
-    \Log::info('🎯 Paramètres après nettoyage :', [
-        'search' => $search,
-        'grade' => $grade,
-        'statut' => $statut
-    ]);
+        \Log::info('🎯 Paramètres après nettoyage :', [
+            'search' => $search,
+            'grade' => $grade,
+            'statut' => $statut
+        ]);
 
-    // Si grade est présent, on vérifie combien de militaires correspondent
-    if ($grade) {
-        $count = Militaire::where('grade_actuel', $grade)->count();
-        \Log::info('📊 Nombre de militaires avec grade "' . $grade . '" : ' . $count);
+        if ($grade) {
+            $count = Militaire::where('grade_actuel', $grade)->count();
+            \Log::info('📊 Nombre de militaires avec grade "' . $grade . '" : ' . $count);
+        }
+
+        return Excel::download(
+            new MilitairesExport($search, $grade, $statut),
+            'militaires_' . date('Y-m-d') . '.xlsx'
+        );
     }
-
-    return Excel::download(
-        new MilitairesExport($search, $grade, $statut),
-        'militaires_' . date('Y-m-d') . '.xlsx'
-    );
-}
 
     // =========================================================
     // MÉTHODES PRIVÉES
@@ -436,11 +447,93 @@ public function export(Request $request)
         $militaire->certificats()->sync($certificats);
     }
 
+    /**
+     * Vérifier toutes les alertes pour un militaire
+     * Promotion, Formation, Retraite, Contrat
+     */
     public function verifierAlertes(Militaire $militaire)
     {
         $this->verifierPromotions($militaire);
         $this->verifierFormations($militaire);
         $this->verifierRetraite($militaire);
+        $this->verifierAlerteContrat($militaire);
+    }
+
+    /**
+ * Vérifier et créer l'alerte contrat pour un militaire
+ * 🔧 UNIQUEMENT L'ALERTE, PAS LE CONTRAT
+ */
+/**
+ * Vérifier et créer l'alerte contrat pour un militaire
+ * 🔧 UNIQUEMENT L'ALERTE, PAS LE CONTRAT
+ */
+private function verifierAlerteContrat(Militaire $militaire): void
+{
+    // 1. Vérifier si le militaire est actif
+    if ($militaire->statut !== 'actif') {
+        return;
+    }
+
+    // 2. Grades éligibles (sous-officiers jusqu'à 1ère classe)
+    $gradesEligibles = [
+        'Soldat 2',
+        'Soldat 1',
+        'Caporal',
+        'Caporal-chef',
+        'Sergent',
+        'Sergent-Chef',
+        'Adjudant',
+        'Adjudant-Chef',
+        'Major'
+    ];
+
+    // 3. Vérifier si le grade est éligible
+    if (!in_array($militaire->grade_actuel, $gradesEligibles)) {
+        return;
+    }
+
+    // 4. Vérifier si le militaire a une date d'entrée en service
+    if (!$militaire->date_entree_service) {
+        return;
+    }
+
+    // 🔧 5. CORRECTION : Calculer les années de service (inverser l'ordre)
+    $serviceYears = floor($militaire->date_entree_service->diffInYears(now()));
+
+    // 6. Si moins de 5 ans, pas d'alerte
+    if ($serviceYears < 5) {
+        // Supprimer l'alerte si elle existe (au cas où)
+        Alerte::where('militaire_id', $militaire->id)
+            ->where('type_alerte', 'contrat')
+            ->delete();
+        return;
+    }
+
+    // 7. Supprimer l'ancienne alerte contrat
+    Alerte::where('militaire_id', $militaire->id)
+        ->where('type_alerte', 'contrat')
+        ->delete();
+
+    // 8. Créer l'alerte contrat
+    $message = "Renouvellement de contrat requis pour {$militaire->prenom} {$militaire->nom} ({$serviceYears} ans de service) - Grade: {$militaire->grade_actuel}";
+
+    Alerte::create([
+        'militaire_id' => $militaire->id,
+        'type_alerte' => 'contrat',
+        'message' => $message,
+        'date_echeance' => now()->addMonths(6),
+        'est_vue' => false,
+    ]);
+}
+
+    /**
+     * Créer une alerte contrat
+     */
+    private function creerAlerteContrat(Militaire $militaire, int $serviceYears): void
+    {
+        $message = "Renouvellement de contrat requis pour {$militaire->prenom} {$militaire->nom} ({$serviceYears} ans de service) - Grade: {$militaire->grade_actuel}";
+
+        $this->creerAlerte($militaire, 'contrat', $message, now()->addMonths(6));
     }
 
     private function getDateProposition()
@@ -449,7 +542,7 @@ public function export(Request $request)
         return Carbon::create($annee, 12, 31, 23, 59, 59);
     }
 
-    private function getDateAnciennetePromotion($militaire, $gradeCible)
+    private function getDateAnciennetePromotion(Militaire $militaire, string $gradeCible)
     {
         $gradeActuel = $militaire->grade_actuel;
         $dateDernierePromotion = $militaire->date_derniere_promotion;
@@ -482,7 +575,7 @@ public function export(Request $request)
         return null;
     }
 
-    private function verifierPromotions(Militaire $militaire)
+    private function verifierPromotions(Militaire $militaire): void
     {
         if ($militaire->statut !== 'actif') return;
 
@@ -560,7 +653,7 @@ public function export(Request $request)
         }
     }
 
-    private function verifierFormations(Militaire $militaire)
+    private function verifierFormations(Militaire $militaire): void
     {
         if ($militaire->statut !== 'actif') return;
 
@@ -635,7 +728,7 @@ public function export(Request $request)
         }
     }
 
-    private function creerAlertePromotion($militaire, $gradeCible, $dateProposition, $dateAnciennete)
+    private function creerAlertePromotion(Militaire $militaire, string $gradeCible, $dateProposition, $dateAnciennete): void
     {
         $anneeProposition = $dateProposition->format('Y');
         $dateAncienneteTexte = $dateAnciennete ? $dateAnciennete->format('d/m/Y') : 'conditions remplies';
@@ -643,7 +736,7 @@ public function export(Request $request)
         $this->creerAlerte($militaire, 'promotion', $message, $dateProposition);
     }
 
-    private function creerAlerteFormation($militaire, $formation, $nomFormation, $dateProposition, $dateConditions)
+    private function creerAlerteFormation(Militaire $militaire, string $formation, string $nomFormation, $dateProposition, $dateConditions): void
     {
         $anneeProposition = $dateProposition->format('Y');
         $dateConditionsTexte = $dateConditions ? $dateConditions->format('d/m/Y') : 'conditions remplies';
@@ -651,7 +744,7 @@ public function export(Request $request)
         $this->creerAlerte($militaire, 'formation', $message, $dateProposition);
     }
 
-    private function verifierRetraite(Militaire $militaire)
+    private function verifierRetraite(Militaire $militaire): void
     {
         $dateRetraite = $militaire->calculerDateRetraite();
 
@@ -666,7 +759,7 @@ public function export(Request $request)
         }
     }
 
-    private function creerAlerte(Militaire $militaire, $type, $message, $dateEcheance = null)
+    private function creerAlerte(Militaire $militaire, string $type, string $message, $dateEcheance = null): void
     {
         $existe = Alerte::where('militaire_id', $militaire->id)
             ->where('type_alerte', $type)
@@ -697,8 +790,8 @@ class MilitairesExportTemplate implements FromArray, WithHeadings
             [
                 '12345', 'DIALLO', 'Baba', '1984-07-19', '2015-06-01',
                 'Soldat', '', 'Infanterie', 'actif', 1,
+                0, '', 0, '', 0, '', 0, '', 0, '', 0, '',
                 0, '', 0, '', 0, '', 0, '', 0, '',
-                0, '', 0, '', 0, '', 0, '',
                 0, '', 0, '', 0, '', 0, '', 0, '',
                 'Position actuelle', 'Fonction passée', 'Fonction actuelle'
             ]

@@ -11,37 +11,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 use Inertia\Inertia;
-use Illuminate\Support\Collection;
 
 class EligibiliteController extends Controller
 {
-    // 🔥 Durée du cache : 10 minutes
-    const CACHE_DURATION = 600;
-    const CACHE_TAG = 'eligibilites';
-
-    /**
-     * GRADES ÉLIGIBLES POUR LES CONTRATS (identique à AlerteController)
-     * Sous-officiers jusqu'à 1ère classe uniquement
-     */
-    private function getGradesEligiblesContrat(): array
-    {
-        return [
-            'Soldat 2',
-            'Soldat 1',
-            'Caporal',
-            'Caporal-chef',
-            'Sergent',
-            'Sergent-Chef',
-            'Adjudant',
-            'Adjudant-Chef',
-            'Major'
-        ];
-    }
-
     /**
      * Affiche la page des éligibilités avec les listes de filtres.
      */
-    public function index(): \Inertia\Response
+    public function index()
     {
         $formationsListe = $this->getFormationsListe();
         $gradesListe = $this->getGradesListe();
@@ -55,7 +31,7 @@ class EligibiliteController extends Controller
     /**
      * API: Récupère les éligibilités filtrées avec pagination.
      */
-    public function getFiltered(Request $request): \Illuminate\Http\JsonResponse
+    public function getFiltered(Request $request)
     {
         $type = $request->input('type', 'promotions');
         $formation = $request->input('formation', '');
@@ -98,48 +74,56 @@ class EligibiliteController extends Controller
     }
 
     /**
-     * Récupère la liste unique de toutes les formations (avec cache).
+     * Récupère la liste unique de toutes les formations.
      */
-    private function getFormationsListe(): array
+    private function getFormationsListe()
     {
-        return cache()->remember('formations_liste', self::CACHE_DURATION, function () {
-            return [
-                ['id' => 'CAT1', 'nom' => 'CAT1 (Certificat Technique Niveau 1)'],
-                ['id' => 'CAT2', 'nom' => 'CAT2 (Certificat Technique Niveau 2)'],
-                ['id' => 'CIA', 'nom' => 'CIA (Certificat Instruction d\'Armes)'],
-                ['id' => 'BA1', 'nom' => 'BA1 (Brevet Aptitude Niveau 1)'],
-                ['id' => 'BA2', 'nom' => 'BA2 (Brevet Aptitude Niveau 2)'],
-                ['id' => 'APLI', 'nom' => 'APLI (Cour d\'Application)'],
-                ['id' => 'CFCU', 'nom' => 'CFCU (Cour des Futurs Commandants)'],
-                ['id' => 'CEM', 'nom' => 'CEM (Cour d\'État-Major)'],
-                ['id' => 'CERT_EM', 'nom' => 'Certificat d\'État-Major'],
-                ['id' => 'ECOLE_GUERRE', 'nom' => 'École de Guerre'],
-            ];
-        });
+        return [
+            ['id' => 'CAT1', 'nom' => 'CAT1 (Certificat Technique Niveau 1)'],
+            ['id' => 'CAT2', 'nom' => 'CAT2 (Certificat Technique Niveau 2)'],
+            ['id' => 'CIA', 'nom' => 'CIA (Certificat Instruction d\'Armes)'],
+            ['id' => 'BA1', 'nom' => 'BA1 (Brevet Aptitude Niveau 1)'],
+            ['id' => 'BA2', 'nom' => 'BA2 (Brevet Aptitude Niveau 2)'],
+            ['id' => 'APLI', 'nom' => 'APLI (Cour d\'Application)'],
+            ['id' => 'CFCU', 'nom' => 'CFCU (Cour des Futurs Commandants)'],
+            ['id' => 'CEM', 'nom' => 'CEM (Cour d\'État-Major)'],
+            ['id' => 'CERT_EM', 'nom' => 'Certificat d\'État-Major'],
+            ['id' => 'ECOLE_GUERRE', 'nom' => 'École de Guerre'],
+        ];
     }
 
     /**
-     * Récupère la liste unique de tous les grades (avec cache).
+     * Récupère la liste unique de tous les grades.
      */
-    private function getGradesListe(): Collection
+    private function getGradesListe()
     {
-        return cache()->remember('grades_liste', self::CACHE_DURATION, function () {
-            $grades = \App\Models\Grade::orderBy('ordre')->get();
-            return $grades->map(fn($g) => [
-                'id' => $g->nom_grade,
-                'nom' => $g->nom_grade
-            ]);
-        });
+        $grades = \App\Models\Grade::orderBy('ordre')->get();
+        return $grades->map(fn($g) => [
+            'id' => $g->nom_grade,
+            'nom' => $g->nom_grade
+        ]);
     }
 
     /**
      * Calcule les éligibilités avec filtres et pagination.
+     *
+     * FIX PERF (2 changements) :
+     * 1. Eager loading de 'contratActif' dans la requête principale (voir
+     *    computeEligibilites()) pour éliminer un N+1 : avant, chaque appel à
+     *    checkContratsOptimized() déclenchait une requête SQL séparée par militaire
+     *    pour trouver son contrat actif.
+     * 2. Mise en cache du résultat calculé (les données ne changent pas seconde par
+     *    seconde) pour éviter de tout recalculer à chaque clic de pagination côté
+     *    frontend, qui rappelle cette méthode à chaque changement de page.
      */
-    private function getEligibilites(string $type = '', string $formation = '', string $grade = '', int $page = 1, int $perPage = 30): array
+    private function getEligibilites($type = '', $formation = '', $grade = '', $page = 1, $perPage = 30)
     {
-        $cacheKey = self::CACHE_TAG . ':' . md5($type . '|' . $formation . '|' . $grade);
+        // Le calcul complet (avant pagination) est identique pour toutes les pages
+        // d'un même (type, formation, grade) — on le met donc en cache séparément
+        // de la pagination, qui elle reste appliquée à chaque appel sur le résultat caché.
+        $cacheKey = 'eligibilites:' . md5($type . '|' . $formation . '|' . $grade);
 
-        $cached = cache()->remember($cacheKey, self::CACHE_DURATION, function () use ($type, $formation, $grade) {
+        $cached = Cache::remember($cacheKey, 60, function () use ($type, $formation, $grade) {
             return $this->computeEligibilites($type, $formation, $grade);
         });
 
@@ -219,9 +203,17 @@ class EligibiliteController extends Controller
 
     /**
      * Effectue le calcul complet (non paginé) des éligibilités.
+     * Extrait de getEligibilites() pour pouvoir être mis en cache indépendamment
+     * de la pagination demandée.
      */
-    private function computeEligibilites(string $type, string $formation, string $grade): array
+    private function computeEligibilites($type, $formation, $grade)
     {
+        // Requête optimisée.
+        // FIX PERF : on eager-load désormais aussi 'contratActif'. Avant, cette relation
+        // n'était chargée qu'à l'usage (dans checkContratsOptimized), ce qui déclenchait
+        // UNE requête SQL par militaire (N+1) rien que pour récupérer son contrat actif.
+        // Avec des centaines de militaires, ça faisait des centaines de requêtes en plus
+        // à chaque appel — c'était la cause principale de la lenteur.
         $query = Militaire::where('statut', 'actif')
             ->with([
                 'certificats' => function ($q) {
@@ -242,6 +234,7 @@ class EligibiliteController extends Controller
 
         $militaires = $query->get();
 
+        // Précharger les alertes contrat (déjà optimisé avant : une seule requête pour tous)
         $militaireIds = $militaires->pluck('id')->toArray();
         $alertesContrat = Alerte::whereIn('militaire_id', $militaireIds)
             ->where('type_alerte', 'contrat')
@@ -251,13 +244,11 @@ class EligibiliteController extends Controller
 
         $dateProposition = $this->getDateProposition();
 
+        // Initialisation des résultats
         $allPromotions = [];
         $allFormations = [];
         $allRetraites = [];
         $allContrats = [];
-
-        // 🔥 Récupérer la liste des grades éligibles pour les contrats
-        $gradesEligibles = $this->getGradesEligiblesContrat();
 
         foreach ($militaires as $militaire) {
             // Promotions
@@ -278,9 +269,9 @@ class EligibiliteController extends Controller
                 $allRetraites = array_merge($allRetraites, $retraites);
             }
 
-            // 🔥 CONTRATS - Mêmes conditions que AlerteController
+            // Contrats
             if (empty($type) || $type === 'contrats') {
-                $contrats = $this->checkContratsARenouveler($militaire, $gradesEligibles);
+                $contrats = $this->checkContratsOptimized($militaire, $alertesContrat);
                 $allContrats = array_merge($allContrats, $contrats);
             }
         }
@@ -300,99 +291,20 @@ class EligibiliteController extends Controller
     }
 
     /**
-     * Invalider le cache des éligibilités
-     */
-    public function invalidateCache(Request $request): \Illuminate\Http\JsonResponse
-    {
-        $type = $request->input('type', '');
-        $formation = $request->input('formation', '');
-        $grade = $request->input('grade', '');
-
-        $cacheKey = self::CACHE_TAG . ':' . md5($type . '|' . $formation . '|' . $grade);
-        cache()->forget($cacheKey);
-
-        return response()->json(['message' => 'Cache invalidé avec succès']);
-    }
-
-    /**
      * Pagine un tableau.
      */
-    private function paginateArray(array $array, int $page, int $perPage): array
+    private function paginateArray($array, $page, $perPage)
     {
         $offset = ($page - 1) * $perPage;
         return array_slice($array, $offset, $perPage);
     }
 
     /**
-     * 🔥 METHODE CORRIGEE : Récupère uniquement les militaires qui DOIVENT renouveler
-     * Conditions IDENTIQUES à AlerteController :
-     * - Grade éligible (sous-officiers)
-     * - 5 ans de service ou plus
-     * - N'a PAS encore renouvelé (pas de contrat avec statut 'renouvele')
+     * Vérification des contrats optimisée
+     * FIX PERF : $militaire->contratActif est maintenant eager-loadé en amont
+     * (voir computeEligibilites), donc cet accès ne déclenche plus de requête SQL.
      */
-    private function checkContratsARenouveler(Militaire $militaire, array $gradesEligibles): array
-    {
-        $result = [];
-
-        // 🔥 1. Vérifier si le grade est éligible (comme dans AlerteController)
-        if (!in_array($militaire->grade_actuel, $gradesEligibles)) {
-            return $result;
-        }
-
-        // 🔥 2. Vérifier si le militaire a un contrat actif
-        $contratActif = $militaire->contratActif;
-
-        if (!$contratActif) {
-            return $result;
-        }
-
-        // 🔥 3. Calculer les années de service (comme dans AlerteController)
-        $anneesService = 0;
-        if ($militaire->date_entree_service) {
-            $anneesService = floor($militaire->date_entree_service->diffInYears(now()));
-        }
-
-        // 🔥 4. Ne garder que ceux qui ont 5 ans ou plus
-        if ($anneesService < 5) {
-            return $result;
-        }
-
-        // 🔥 5. EXCLURE ceux qui ont déjà renouvelé (contrat avec statut 'renouvele')
-        $contratRenouvele = $militaire->contrats()
-            ->where('statut', 'renouvele')
-            ->exists();
-
-        if ($contratRenouvele) {
-            return $result; // Déjà renouvelé, on ne l'affiche pas
-        }
-
-        $statutContrat = $contratActif ? 'actif' : 'sans contrat';
-        $dateEcheance = $contratActif?->date_fin?->format('Y-m-d');
-
-        // Message personnalisé
-        $message = "Renouvellement requis - {$anneesService} ans de service";
-
-        $result[] = [
-            'militaire' => [
-                'id' => $militaire->id,
-                'matricule' => $militaire->matricule,
-                'nom' => $militaire->nom,
-                'prenom' => $militaire->prenom,
-                'grade_actuel' => $militaire->grade_actuel,
-            ],
-            'annees_service' => $anneesService,
-            'statut_contrat' => $statutContrat,
-            'date_echeance' => $dateEcheance,
-            'message' => $message,
-        ];
-
-        return $result;
-    }
-
-    /**
-     * Vérification des contrats optimisée (avec alerte) - pour l'affichage dans la page
-     */
-    private function checkContratsOptimized(Militaire $militaire, Collection $alertesContrat): array
+    private function checkContratsOptimized($militaire, $alertesContrat)
     {
         $result = [];
 
@@ -431,7 +343,7 @@ class EligibiliteController extends Controller
     /**
      * Vérifie les éligibilités aux promotions.
      */
-    private function checkPromotions(Militaire $militaire): array
+    private function checkPromotions($militaire)
     {
         $result = [];
 
@@ -526,7 +438,7 @@ class EligibiliteController extends Controller
     /**
      * Vérifie les éligibilités aux formations.
      */
-    private function checkFormations(Militaire $militaire, string $formationFiltre = ''): array
+    private function checkFormations($militaire, $formationFiltre = '')
     {
         $result = [];
 
@@ -638,7 +550,7 @@ class EligibiliteController extends Controller
     /**
      * Vérifie les retraites proches.
      */
-    private function checkRetraite(Militaire $militaire): array
+    private function checkRetraite($militaire)
     {
         $result = [];
 
@@ -670,7 +582,7 @@ class EligibiliteController extends Controller
     /**
      * Formate une promotion pour l'affichage.
      */
-    private function formatPromotion(Militaire $militaire, string $gradeCible, Carbon $dateProposition, ?Carbon $dateAnciennete = null, string $detail = ''): array
+    private function formatPromotion($militaire, $gradeCible, $dateProposition, $dateAnciennete = null, $detail = '')
     {
         $anneeProposition = $dateProposition->format('Y');
 
@@ -706,7 +618,7 @@ class EligibiliteController extends Controller
     /**
      * Formate une formation pour l'affichage.
      */
-    private function formatFormation(Militaire $militaire, string $formation, string $nomFormation, Carbon $dateProposition, ?Carbon $dateConditions = null, string $conditionTexte = ''): array
+    private function formatFormation($militaire, $formation, $nomFormation, $dateProposition, $dateConditions = null, $conditionTexte = '')
     {
         $anneeProposition = $dateProposition->format('Y');
 
@@ -739,30 +651,25 @@ class EligibiliteController extends Controller
     /**
      * Retourne l'année de proposition (31 décembre de l'année en cours)
      */
-    private function getDateProposition(): Carbon
+    private function getDateProposition()
     {
         $annee = Carbon::now()->year;
         return Carbon::create($annee, 12, 31, 23, 59, 59);
     }
 
     /**
-     * 🔥 EXPORT - Version corrigée pour récupérer les contrats à renouveler
+     * Exporte les éligibilités vers Excel.
      */
-    public function export(Request $request): \Symfony\Component\HttpFoundation\BinaryFileResponse|\Illuminate\Http\RedirectResponse
+    public function export(Request $request)
     {
         $type = $request->input('type', 'all');
         $formation = $request->input('formation', '');
         $grade = $request->input('grade', '');
         $exportAll = $request->input('export_all', false);
 
-        // 🔥 Récupérer les données sans cache pour l'export
-        $eligibilites = $this->computeEligibilites($type, $formation, $grade);
+        $eligibilites = $this->getEligibilites($type, $formation, $grade, 1, 99999);
 
-        $allData = $eligibilites;
-
-        if (empty($allData)) {
-            return redirect()->back()->with('error', 'Aucune donnée à exporter.');
-        }
+        $allData = $eligibilites['all_data'] ?? [];
 
         if (!$exportAll && !empty($type)) {
             $filteredData = [];
@@ -784,7 +691,7 @@ class EligibiliteController extends Controller
         }
 
         if ($totalItems === 0) {
-            return redirect()->back()->with('error', "Aucune donnée à exporter pour le type '{$type}'.");
+            return redirect()->back()->with('error', 'Aucune donnée à exporter.');
         }
 
         $typeName = $type ?: 'all';

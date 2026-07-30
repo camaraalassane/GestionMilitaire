@@ -26,6 +26,7 @@ class Militaire extends Model
         'position_actuelle',
         'fonction_passee',
         'fonction_actuelle',
+        'telephone',
         'statut',
         'a_permis_conduire',
         'a_fait_justice',
@@ -41,18 +42,25 @@ class Militaire extends Model
         'a_fait_discipline' => 'boolean',
     ];
 
-    // Relations
+    // =========================================================
+    // RELATIONS
+    // =========================================================
+
     public function alertes(): HasMany
     {
         return $this->hasMany(Alerte::class);
     }
 
-    public function certificats(): BelongsToMany
-    {
-        return $this->belongsToMany(Certificat::class)
-                    ->withPivot('date_obtention')
-                    ->withTimestamps();
-    }
+    /**
+     * Relation Many-to-Many avec Certificat
+     * ✅ Table pivot : militaire_certificat (correspond à la migration)
+     */
+   public function certificats(): BelongsToMany
+{
+    return $this->belongsToMany(Certificat::class, 'certificat_militaire')
+                ->withPivot('id', 'date_obtention')
+                ->withTimestamps();
+}
 
     public function contrats(): HasMany
     {
@@ -69,33 +77,27 @@ class Militaire extends Model
         return $this->belongsTo(Grade::class, 'grade_actuel', 'nom_grade');
     }
 
-    /**
-     * Retourne la date de référence pour les calculs d'ancienneté (31 décembre de l'année en cours)
-     */
+    // =========================================================
+    // MÉTHODES D'ANCIENNETÉ
+    // =========================================================
+
     private static function getDateReference(): Carbon
     {
         $currentYear = Carbon::now()->year;
         return Carbon::create($currentYear, 12, 31, 23, 59, 59);
     }
 
-    // Accesseurs
     public function getAgeAttribute(): int
     {
         return Carbon::parse($this->date_naissance)->age;
     }
 
-    /**
-     * Calcule l'ancienneté totale au 31 décembre de l'année en cours
-     */
     public function getAncienneteAttribute(): int
     {
         $dateReference = self::getDateReference();
         return Carbon::parse($this->date_entree_service)->diffInYears($dateReference);
     }
 
-    /**
-     * Calcule l'ancienneté dans le grade au 31 décembre de l'année en cours
-     */
     public function getAncienneteGradeAttribute(): int
     {
         $dateReference = self::getDateReference();
@@ -106,9 +108,6 @@ class Militaire extends Model
         return $this->getAncienneteAttribute();
     }
 
-    /**
-     * Ancienneté détaillée (années et mois) au 31 décembre de l'année en cours
-     */
     public function getAncienneteDetailleeAttribute(): string
     {
         if (!$this->date_entree_service) {
@@ -123,9 +122,6 @@ class Militaire extends Model
         return $years . ' ans ' . ($months > 0 ? $months . ' mois' : '');
     }
 
-    /**
-     * Ancienneté dans le grade détaillée (années et mois) au 31 décembre de l'année en cours
-     */
     public function getAncienneteGradeDetailleeAttribute(): string
     {
         $dateReference = self::getDateReference();
@@ -140,9 +136,10 @@ class Militaire extends Model
         return $this->getAncienneteDetailleeAttribute();
     }
 
-    /**
-     * Calcule la date de retraite en fonction du grade (ne sauvegarde pas en base)
-     */
+    // =========================================================
+    // MÉTHODES RETRAITE
+    // =========================================================
+
     public function calculerDateRetraite(): ?Carbon
     {
         $grade = Grade::where('nom_grade', $this->grade_actuel)->first();
@@ -155,9 +152,6 @@ class Militaire extends Model
         return null;
     }
 
-    /**
-     * Vérifie si le militaire est éligible à la retraite (dans les 6 mois)
-     */
     public function estEligibleRetraite(): bool
     {
         $dateRetraite = $this->calculerDateRetraite();
@@ -167,10 +161,10 @@ class Militaire extends Model
         return false;
     }
 
-    /**
-     * Vérifie si l'ancienneté dans le grade atteint un nombre d'années spécifique
-     * (utile pour les vérifications de promotion)
-     */
+    // =========================================================
+    // MÉTHODES DE VÉRIFICATION
+    // =========================================================
+
     public function aAncienneteGradeMin(int $annees): bool
     {
         $dateReference = self::getDateReference();
@@ -182,11 +176,9 @@ class Militaire extends Model
         $datePromotion = Carbon::parse($this->date_derniere_promotion);
         $ageEnAnnees = $datePromotion->diffInYears($dateReference);
 
-        // Vérifier si l'anniversaire de promotion est passé dans l'année
         $moisJourPromotion = $datePromotion->format('m-d');
         $moisJourReference = $dateReference->format('m-d');
 
-        // Si la date anniversaire n'est pas encore passée au 31/12, on retire 1 an
         if ($moisJourPromotion > $moisJourReference) {
             $ageEnAnnees--;
         }
@@ -194,16 +186,12 @@ class Militaire extends Model
         return $ageEnAnnees >= $annees;
     }
 
-    /**
-     * Vérifie si l'ancienneté totale atteint un nombre d'années spécifique
-     */
     public function aAncienneteMin(int $annees): bool
     {
         $dateReference = self::getDateReference();
         $dateEntree = Carbon::parse($this->date_entree_service);
         $ageEnAnnees = $dateEntree->diffInYears($dateReference);
 
-        // Vérifier si l'anniversaire d'entrée est passé dans l'année
         $moisJourEntree = $dateEntree->format('m-d');
         $moisJourReference = $dateReference->format('m-d');
 
@@ -214,9 +202,6 @@ class Militaire extends Model
         return $ageEnAnnees >= $annees;
     }
 
-    /**
-     * Vérifie si le militaire a 5 ans de service (pour renouvellement de contrat)
-     */
     public function aCinqAnsService(): bool
     {
         if (!$this->date_entree_service) {
@@ -229,9 +214,6 @@ class Militaire extends Model
         return $serviceYears >= 5;
     }
 
-    /**
-     * Récupère le contrat actif du militaire
-     */
     public function getContratActifAttribute(): ?Contrat
     {
         return $this->contrats()->where('statut', 'actif')->latest('date_debut')->first();

@@ -8,6 +8,7 @@ use App\Models\Grade;
 use App\Models\Alerte;
 use App\Models\Certificat;
 use App\Models\Contrat;
+use App\Models\CertificatDocument;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Inertia\Inertia;
@@ -17,6 +18,7 @@ use App\Imports\MilitairesImport;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Storage;
 
 class MilitaireController extends Controller
 {
@@ -79,6 +81,7 @@ class MilitaireController extends Controller
                 'position_actuelle' => $militaire->position_actuelle,
                 'fonction_passee' => $militaire->fonction_passee,
                 'fonction_actuelle' => $militaire->fonction_actuelle,
+                'telephone' => $militaire->telephone,
                 'statut' => $militaire->statut,
                 'age' => $militaire->age,
                 'anciennete' => $militaire->anciennete,
@@ -121,41 +124,39 @@ class MilitaireController extends Controller
         ]);
     }
 
-   public function store(Request $request)
-{
-    $validated = $request->validate([
-        'matricule' => 'required|string|unique:militaires',
-        'nom' => 'required|string|max:100',
-        'prenom' => 'required|string|max:100',
-        'date_naissance' => 'required|date',
-        'date_entree_service' => 'required|date|before_or_equal:today',
-        'grade_actuel' => 'required|string',
-        'date_derniere_promotion' => 'nullable|date|before_or_equal:today',
-        'specialite' => 'nullable|string|max:200',
-        'position_actuelle' => 'nullable|string|max:255',
-        'fonction_passee' => 'nullable|string|max:255',
-        'fonction_actuelle' => 'nullable|string|max:255',
-        'a_permis_conduire' => 'boolean',
-    ]);
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'matricule' => 'required|string|unique:militaires',
+            'nom' => 'required|string|max:100',
+            'prenom' => 'required|string|max:100',
+            'date_naissance' => 'required|date',
+            'date_entree_service' => 'required|date|before_or_equal:today',
+            'grade_actuel' => 'required|string',
+            'date_derniere_promotion' => 'nullable|date|before_or_equal:today',
+            'specialite' => 'nullable|string|max:200',
+            'position_actuelle' => 'nullable|string|max:255',
+            'fonction_passee' => 'nullable|string|max:255',
+            'fonction_actuelle' => 'nullable|string|max:255',
+            'telephone' => 'nullable|string|max:20',
+            'a_permis_conduire' => 'boolean',
+        ]);
 
-    $data = $this->extractData($request);
-    $militaire = Militaire::create($data);
+        $data = $this->extractData($request);
+        $militaire = Militaire::create($data);
 
-    if ($request->has('certificats')) {
-        $this->syncCertificats($militaire, $request->certificats);
+        if ($request->has('certificats')) {
+            $this->syncCertificatsWithDocuments($militaire, $request->certificats);
+        }
+
+        $militaire->load('certificats');
+
+        $this->verifierAlertes($militaire);
+        $this->verifierAlerteContrat($militaire);
+
+        return redirect()->route('militaires.index')
+            ->with('success', 'Militaire ajouté avec succès.');
     }
-
-    $militaire->load('certificats');
-
-    // VÉRIFIER LES ALERTES (promotion, formation, retraite)
-    $this->verifierAlertes($militaire);
-
-    // 🔧 CRÉER UNIQUEMENT L'ALERTE CONTRAT (PAS DE CONTRAT)
-    $this->verifierAlerteContrat($militaire);
-
-    return redirect()->route('militaires.index')
-        ->with('success', 'Militaire ajouté avec succès.');
-}
 
     public function show(Militaire $militaire)
     {
@@ -174,14 +175,20 @@ class MilitaireController extends Controller
             'created_at' => $alerte->created_at?->format('d/m/Y H:i'),
         ]);
 
-        $certificats = $militaire->certificats->map(fn ($certificat) => [
-            'id' => $certificat->id,
-            'nom_certificat' => $certificat->nom_certificat,
-            'niveau_certificat' => $certificat->niveau_certificat,
-            'date_obtention' => $certificat->pivot->date_obtention
-                ? Carbon::parse($certificat->pivot->date_obtention)->format('d/m/Y')
-                : null,
-        ]);
+        $certificats = $militaire->certificats->map(function ($certificat) {
+            $document = CertificatDocument::where('militaire_certificat_id', $certificat->pivot->id)->first();
+
+            return [
+                'id' => $certificat->id,
+                'nom_certificat' => $certificat->nom_certificat,
+                'niveau_certificat' => $certificat->niveau_certificat,
+                'date_obtention' => $certificat->pivot->date_obtention
+                    ? Carbon::parse($certificat->pivot->date_obtention)->format('d/m/Y')
+                    : null,
+                'document_id' => $document?->id,
+                'document_nom' => $document?->nom_fichier,
+            ];
+        });
 
         $dateRetraite = $militaire->calculerDateRetraite();
 
@@ -199,6 +206,7 @@ class MilitaireController extends Controller
             'position_actuelle' => $militaire->position_actuelle,
             'fonction_passee' => $militaire->fonction_passee,
             'fonction_actuelle' => $militaire->fonction_actuelle,
+            'telephone' => $militaire->telephone,
             'statut' => $militaire->statut,
             'a_permis_conduire' => $militaire->a_permis_conduire,
             'a_fait_justice' => $militaire->a_fait_justice,
@@ -239,12 +247,21 @@ class MilitaireController extends Controller
             'niveau_certificat' => $certificat->niveau_certificat,
         ]);
 
-        $certificatsDuMilitaire = $militaire->certificats->keyBy('id')->map(fn ($certificat) => [
-            'obtenu' => true,
-            'date_obtention' => $certificat->pivot->date_obtention
-                ? Carbon::parse($certificat->pivot->date_obtention)->format('Y-m-d')
-                : null,
-        ]);
+        $certificatsDuMilitaire = [];
+        foreach ($militaire->certificats as $certificat) {
+            $document = CertificatDocument::where('militaire_certificat_id', $certificat->pivot->id)->first();
+
+            $certificatsDuMilitaire[$certificat->id] = [
+                'obtenu' => true,
+                'date_obtention' => $certificat->pivot->date_obtention
+                    ? Carbon::parse($certificat->pivot->date_obtention)->format('Y-m-d')
+                    : null,
+                'document' => $document ? [
+                    'id' => $document->id,
+                    'nom_fichier' => $document->nom_fichier,
+                ] : null,
+            ];
+        }
 
         return Inertia::render('militaires/edit', [
             'militaire' => [
@@ -260,6 +277,7 @@ class MilitaireController extends Controller
                 'position_actuelle' => $militaire->position_actuelle,
                 'fonction_passee' => $militaire->fonction_passee,
                 'fonction_actuelle' => $militaire->fonction_actuelle,
+                'telephone' => $militaire->telephone,
                 'statut' => $militaire->statut,
                 'a_permis_conduire' => $militaire->a_permis_conduire,
                 'a_fait_justice' => $militaire->a_fait_justice,
@@ -285,6 +303,7 @@ class MilitaireController extends Controller
             'position_actuelle' => 'nullable|string|max:255',
             'fonction_passee' => 'nullable|string|max:255',
             'fonction_actuelle' => 'nullable|string|max:255',
+            'telephone' => 'nullable|string|max:20',
             'statut' => 'required|in:actif,retraité,déserteur,décédé,démobilisé,formation,stage',
             'a_permis_conduire' => 'boolean',
             'a_fait_justice' => 'boolean',
@@ -295,12 +314,11 @@ class MilitaireController extends Controller
         $militaire->update($data);
 
         if ($request->has('certificats')) {
-            $this->syncCertificats($militaire, $request->certificats);
+            $this->syncCertificatsWithDocuments($militaire, $request->certificats);
         }
 
         $militaire->load('certificats');
 
-        // Vérifier les alertes (promotion, formation, retraite, contrat)
         $this->verifierAlertes($militaire);
 
         return redirect()->route('militaires.show', $militaire)
@@ -388,7 +406,8 @@ class MilitaireController extends Controller
         $data = $request->only([
             'matricule', 'nom', 'prenom', 'date_naissance', 'date_entree_service',
             'grade_actuel', 'date_derniere_promotion', 'specialite', 'statut',
-            'position_actuelle', 'fonction_passee', 'fonction_actuelle'
+            'position_actuelle', 'fonction_passee', 'fonction_actuelle',
+            'telephone'
         ]);
 
         $booleanFields = [
@@ -434,22 +453,130 @@ class MilitaireController extends Controller
         return $data;
     }
 
-    private function syncCertificats(Militaire $militaire, array $certificatsData)
+    /**
+     * Synchronise les certificats et gère les documents
+     */
+    private function syncCertificatsWithDocuments(Militaire $militaire, array $certificatsData)
     {
-        $certificats = [];
+        $syncData = [];
+        $documentsToProcess = [];
+
         foreach ($certificatsData as $certificatId => $data) {
             if (isset($data['obtenu']) && $data['obtenu']) {
-                $certificats[$certificatId] = [
+                $syncData[$certificatId] = [
                     'date_obtention' => $data['date_obtention'] ?? null,
                 ];
+
+                if (isset($data['document']) && $data['document']) {
+                    $documentsToProcess[$certificatId] = $data['document'];
+                }
             }
         }
-        $militaire->certificats()->sync($certificats);
+
+        // 1. Synchroniser les certificats (table pivot: militaire_certificat)
+        $militaire->certificats()->sync($syncData);
+
+        // 2. Traiter les documents après la synchronisation
+        foreach ($documentsToProcess as $certificatId => $documentData) {
+            $pivotId = $militaire->certificats()
+                ->where('certificat_id', $certificatId)
+                ->first()?->pivot?->id;
+
+            if ($pivotId) {
+                $this->handleCertificatDocument($pivotId, $documentData);
+            }
+        }
+
+        // 3. Nettoyer les documents orphelins (commenté temporairement pour éviter erreur SQLite)
+        // $this->cleanupOrphanDocuments($militaire);
+    }
+
+    /**
+     * Gère l'upload/suppression des documents
+     */
+    private function handleCertificatDocument($pivotId, $documentData)
+    {
+        // Si le document est null ou false, supprimer l'existant
+        if (!$documentData) {
+            $existingDoc = CertificatDocument::where('militaire_certificat_id', $pivotId)->first();
+            if ($existingDoc) {
+                Storage::disk('public')->delete($existingDoc->chemin_fichier);
+                $existingDoc->delete();
+            }
+            return;
+        }
+
+        // Si c'est un fichier uploadé
+        if (is_array($documentData) && isset($documentData['file'])) {
+            $file = $documentData['file'];
+        } elseif ($documentData instanceof \Illuminate\Http\UploadedFile) {
+            $file = $documentData;
+        } else {
+            return;
+        }
+
+        // Supprimer l'ancien document s'il existe
+        $existingDoc = CertificatDocument::where('militaire_certificat_id', $pivotId)->first();
+        if ($existingDoc) {
+            Storage::disk('public')->delete($existingDoc->chemin_fichier);
+            $existingDoc->delete();
+        }
+
+        // Enregistrer le nouveau document
+        $path = $file->store('certificats_documents', 'public');
+
+        CertificatDocument::create([
+            'militaire_certificat_id' => $pivotId,
+            'nom_fichier' => $file->getClientOriginalName(),
+            'chemin_fichier' => $path,
+            'type_fichier' => $file->getMimeType(),
+            'taille' => $file->getSize(),
+        ]);
+    }
+
+    /**
+     * Nettoie les documents orphelins
+     * ✅ Version corrigée pour SQLite
+     */
+    private function cleanupOrphanDocuments(Militaire $militaire)
+    {
+        try {
+            // Récupérer tous les IDs de la table pivot pour ce militaire
+            $allPivotIds = \DB::table('militaire_certificat')
+                ->where('militaire_id', $militaire->id)
+                ->pluck('id')
+                ->toArray();
+
+            // Récupérer les IDs des certificats actifs
+            $activePivotIds = $militaire->certificats()
+                ->get()
+                ->pluck('pivot.id')
+                ->toArray();
+
+            // Trouver les IDs orphelins
+            $orphanPivotIds = array_diff($allPivotIds, $activePivotIds);
+
+            if (empty($orphanPivotIds)) {
+                return;
+            }
+
+            // Supprimer les documents associés aux IDs orphelins
+            $documents = CertificatDocument::whereIn('militaire_certificat_id', $orphanPivotIds)->get();
+
+            foreach ($documents as $document) {
+                if (Storage::disk('public')->exists($document->chemin_fichier)) {
+                    Storage::disk('public')->delete($document->chemin_fichier);
+                }
+                $document->delete();
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Erreur lors du nettoyage des documents orphelins : ' . $e->getMessage());
+        }
     }
 
     /**
      * Vérifier toutes les alertes pour un militaire
-     * Promotion, Formation, Retraite, Contrat
      */
     public function verifierAlertes(Militaire $militaire)
     {
@@ -460,80 +587,49 @@ class MilitaireController extends Controller
     }
 
     /**
- * Vérifier et créer l'alerte contrat pour un militaire
- * 🔧 UNIQUEMENT L'ALERTE, PAS LE CONTRAT
- */
-/**
- * Vérifier et créer l'alerte contrat pour un militaire
- * 🔧 UNIQUEMENT L'ALERTE, PAS LE CONTRAT
- */
-private function verifierAlerteContrat(Militaire $militaire): void
-{
-    // 1. Vérifier si le militaire est actif
-    if ($militaire->statut !== 'actif') {
-        return;
-    }
+     * Vérifier et créer l'alerte contrat pour un militaire
+     */
+    private function verifierAlerteContrat(Militaire $militaire): void
+    {
+        if ($militaire->statut !== 'actif') {
+            return;
+        }
 
-    // 2. Grades éligibles (sous-officiers jusqu'à 1ère classe)
-    $gradesEligibles = [
-        'Soldat 2',
-        'Soldat 1',
-        'Caporal',
-        'Caporal-chef',
-        'Sergent',
-        'Sergent-Chef',
-        'Adjudant',
-        'Adjudant-Chef',
-        'Major'
-    ];
+        $gradesEligibles = [
+            'Soldat 2', 'Soldat 1', 'Caporal', 'Caporal-chef',
+            'Sergent', 'Sergent-Chef', 'Adjudant', 'Adjudant-Chef', 'Major'
+        ];
 
-    // 3. Vérifier si le grade est éligible
-    if (!in_array($militaire->grade_actuel, $gradesEligibles)) {
-        return;
-    }
+        if (!in_array($militaire->grade_actuel, $gradesEligibles)) {
+            return;
+        }
 
-    // 4. Vérifier si le militaire a une date d'entrée en service
-    if (!$militaire->date_entree_service) {
-        return;
-    }
+        if (!$militaire->date_entree_service) {
+            return;
+        }
 
-    // 🔧 5. CORRECTION : Calculer les années de service (inverser l'ordre)
-    $serviceYears = floor($militaire->date_entree_service->diffInYears(now()));
+        $serviceYears = floor($militaire->date_entree_service->diffInYears(now()));
 
-    // 6. Si moins de 5 ans, pas d'alerte
-    if ($serviceYears < 5) {
-        // Supprimer l'alerte si elle existe (au cas où)
+        if ($serviceYears < 5) {
+            Alerte::where('militaire_id', $militaire->id)
+                ->where('type_alerte', 'contrat')
+                ->delete();
+            return;
+        }
+
         Alerte::where('militaire_id', $militaire->id)
             ->where('type_alerte', 'contrat')
             ->delete();
-        return;
-    }
 
-    // 7. Supprimer l'ancienne alerte contrat
-    Alerte::where('militaire_id', $militaire->id)
-        ->where('type_alerte', 'contrat')
-        ->delete();
-
-    // 8. Créer l'alerte contrat
-    $message = "Renouvellement de contrat requis pour {$militaire->prenom} {$militaire->nom} ({$serviceYears} ans de service) - Grade: {$militaire->grade_actuel}";
-
-    Alerte::create([
-        'militaire_id' => $militaire->id,
-        'type_alerte' => 'contrat',
-        'message' => $message,
-        'date_echeance' => now()->addMonths(6),
-        'est_vue' => false,
-    ]);
-}
-
-    /**
-     * Créer une alerte contrat
-     */
-    private function creerAlerteContrat(Militaire $militaire, int $serviceYears): void
-    {
         $message = "Renouvellement de contrat requis pour {$militaire->prenom} {$militaire->nom} ({$serviceYears} ans de service) - Grade: {$militaire->grade_actuel}";
 
-        $this->creerAlerte($militaire, 'contrat', $message, now()->addMonths(6));
+        Alerte::create([
+            'militaire_id' => $militaire->id,
+            'type_alerte' => 'contrat',
+            'message' => $message,
+            'date_echeance' => now()->addMonths(6),
+            'est_vue' => false,
+        ]);
     }
 
     private function getDateProposition()
@@ -793,7 +889,7 @@ class MilitairesExportTemplate implements FromArray, WithHeadings
                 0, '', 0, '', 0, '', 0, '', 0, '', 0, '',
                 0, '', 0, '', 0, '', 0, '', 0, '',
                 0, '', 0, '', 0, '', 0, '', 0, '',
-                'Position actuelle', 'Fonction passée', 'Fonction actuelle'
+                'Position actuelle', 'Fonction passée', 'Fonction actuelle', '0123456789'
             ]
         ];
     }
@@ -811,7 +907,7 @@ class MilitairesExportTemplate implements FromArray, WithHeadings
             'a_fait_cfcu', 'date_obtention_cfcu', 'a_fait_cem', 'date_obtention_cem',
             'a_fait_certificat_etat_major', 'date_obtention_certificat_etat_major',
             'a_fait_ecole_guerre', 'date_obtention_ecole_guerre',
-            'position_actuelle', 'fonction_passee', 'fonction_actuelle'
+            'position_actuelle', 'fonction_passee', 'fonction_actuelle', 'telephone'
         ];
     }
 }

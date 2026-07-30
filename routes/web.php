@@ -8,6 +8,7 @@ use App\Http\Controllers\GradeController;
 use App\Http\Controllers\AlerteController;
 use App\Http\Controllers\EligibiliteController;
 use App\Http\Controllers\ContratController;
+use App\Http\Controllers\CertificatDocumentController; // ✅ NOUVEAU
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -67,6 +68,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/certificats/{certificat}/edit', [CertificatController::class, 'edit'])->name('certificats.edit');
     Route::put('/certificats/{certificat}', [CertificatController::class, 'update'])->name('certificats.update');
     Route::delete('/certificats/{certificat}', [CertificatController::class, 'destroy'])->name('certificats.destroy');
+
+    // ✅ NOUVELLE ROUTE : Téléchargement des documents des certificats
+    Route::get('/certificats/document/{id}/download', [CertificatDocumentController::class, 'download'])
+        ->name('certificats.document.download');
 });
 
 // Routes pour les militaires

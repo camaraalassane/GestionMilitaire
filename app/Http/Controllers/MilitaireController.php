@@ -861,47 +861,78 @@ class MilitaireController extends Controller
         }
     }
 
-    /**
-     * Vérifie les formations et supprime les alertes si le certificat est obtenu
-     */
-    private function verifierFormations(Militaire $militaire): void
-    {
-        if ($militaire->statut !== 'actif') return;
+   /**
+ * Vérifie les formations et supprime les alertes si le certificat est obtenu
+ */
+private function verifierFormations(Militaire $militaire): void
+{
+    if ($militaire->statut !== 'actif') return;
 
-        $grade = $militaire->grade_actuel;
-        $age = $militaire->age;
-        $anciennete = $militaire->anciennete;
-        $ancienneteGrade = $militaire->ancienneteGrade;
-        $certificatsObtenus = $militaire->certificats->pluck('niveau_certificat')->toArray();
-        $conditionsBase = !$militaire->a_fait_justice && !$militaire->a_fait_discipline;
-        $dateProposition = $this->getDateProposition();
+    $grade = $militaire->grade_actuel;
+    $age = $militaire->age;
+    $anciennete = $militaire->anciennete;
+    $ancienneteGrade = $militaire->ancienneteGrade;
+    $certificatsObtenus = $militaire->certificats->pluck('niveau_certificat')->toArray();
+    $conditionsBase = !$militaire->a_fait_justice && !$militaire->a_fait_discipline;
+    $dateProposition = $this->getDateProposition();
 
-        // =========================================================
-        // 1. CAT1 - Supprimer l'alerte si le certificat est obtenu
-        // =========================================================
-        if (in_array('CAT1', $certificatsObtenus)) {
-            Alerte::where('militaire_id', $militaire->id)
-                ->where('type_alerte', 'formation')
-                ->where('message', 'LIKE', '%CAT1%')
-                ->delete();
+    // =========================================================
+    // 1. APLI - Supprimer TOUTES les alertes si le certificat est obtenu
+    // =========================================================
+    if (in_array('APLI', $certificatsObtenus)) {
+        Alerte::where('militaire_id', $militaire->id)
+            ->where('type_alerte', 'formation')
+            ->where('message', 'LIKE', '%APLI%')
+            ->delete();
+    } else {
+        // APLI - Alerte si non obtenu
+        if (in_array($grade, ['Sous-lieutenant', 'Lieutenant', 'Capitaine']) && !in_array('CFCU', $certificatsObtenus) && $age <= 50) {
+            $this->creerAlerteFormation($militaire, 'APLI', "Cour d'Application", $dateProposition, null);
         }
+    }
 
+    // =========================================================
+    // 2. CFCU - Supprimer TOUTES les alertes si le certificat est obtenu
+    // =========================================================
+    if (in_array('CFCU', $certificatsObtenus)) {
+        Alerte::where('militaire_id', $militaire->id)
+            ->where('type_alerte', 'formation')
+            ->where('message', 'LIKE', '%CFCU%')
+            ->delete();
+    } else {
+        // CFCU - Alerte si non obtenu
+        if (in_array($grade, ['Lieutenant', 'Capitaine']) && !in_array('CFCU', $certificatsObtenus)) {
+            if ($grade == 'Capitaine' || in_array('APLI', $certificatsObtenus)) {
+                $this->creerAlerteFormation($militaire, 'CFCU', "Cour des Futurs Commandants d'Unité", $dateProposition, null);
+            }
+        }
+    }
+
+    // =========================================================
+    // 3. CAT1 - Supprimer TOUTES les alertes si le certificat est obtenu
+    // =========================================================
+    if (in_array('CAT1', $certificatsObtenus)) {
+        Alerte::where('militaire_id', $militaire->id)
+            ->where('type_alerte', 'formation')
+            ->where('message', 'LIKE', '%CAT1%')
+            ->delete();
+    } else {
         // CAT1 - Alerte si non obtenu
         if (in_array($grade, ['Soldat 2', 'Soldat 1']) && !in_array('CAT1', $certificatsObtenus) && $ancienneteGrade >= 5 && $conditionsBase) {
             $dateConditions = Carbon::parse($militaire->date_entree_service)->addYears(5);
             $this->creerAlerteFormation($militaire, 'CAT1', "Certificat d'Aptitude Technique Niveau 1", $dateProposition, $dateConditions);
         }
+    }
 
-        // =========================================================
-        // 2. CAT2 - Supprimer l'alerte si le certificat est obtenu
-        // =========================================================
-        if (in_array('CAT2', $certificatsObtenus)) {
-            Alerte::where('militaire_id', $militaire->id)
-                ->where('type_alerte', 'formation')
-                ->where('message', 'LIKE', '%CAT2%')
-                ->delete();
-        }
-
+    // =========================================================
+    // 4. CAT2 - Supprimer TOUTES les alertes si le certificat est obtenu
+    // =========================================================
+    if (in_array('CAT2', $certificatsObtenus)) {
+        Alerte::where('militaire_id', $militaire->id)
+            ->where('type_alerte', 'formation')
+            ->where('message', 'LIKE', '%CAT2%')
+            ->delete();
+    } else {
         // CAT2 - Alerte si non obtenu
         if ($grade == 'Caporal' && $age < 47 && !in_array('CAT2', $certificatsObtenus) && $ancienneteGrade >= 3 && $conditionsBase && in_array('CAT1', $certificatsObtenus)) {
             $certifCAT1 = $militaire->certificats->where('niveau_certificat', 'CAT1')->first();
@@ -911,32 +942,32 @@ class MilitaireController extends Controller
             }
             $this->creerAlerteFormation($militaire, 'CAT2', "Certificat d'Aptitude Technique Niveau 2", $dateProposition, $dateConditions);
         }
+    }
 
-        // =========================================================
-        // 3. CIA - Supprimer l'alerte si le certificat est obtenu
-        // =========================================================
-        if (in_array('CIA', $certificatsObtenus)) {
-            Alerte::where('militaire_id', $militaire->id)
-                ->where('type_alerte', 'formation')
-                ->where('message', 'LIKE', '%CIA%')
-                ->delete();
-        }
-
+    // =========================================================
+    // 5. CIA - Supprimer TOUTES les alertes si le certificat est obtenu
+    // =========================================================
+    if (in_array('CIA', $certificatsObtenus)) {
+        Alerte::where('militaire_id', $militaire->id)
+            ->where('type_alerte', 'formation')
+            ->where('message', 'LIKE', '%CIA%')
+            ->delete();
+    } else {
         // CIA - Alerte si non obtenu
         if (in_array($grade, ['Sergent', 'Sergent-Chef', 'Adjudant', 'Adjudant-Chef']) && !in_array('CIA', $certificatsObtenus) && $conditionsBase && $militaire->a_permis_conduire) {
             $this->creerAlerteFormation($militaire, 'CIA', "Certificat d'Instruction d'Armes", $dateProposition, null);
         }
+    }
 
-        // =========================================================
-        // 4. BA1 - Supprimer l'alerte si le certificat est obtenu
-        // =========================================================
-        if (in_array('BA1', $certificatsObtenus)) {
-            Alerte::where('militaire_id', $militaire->id)
-                ->where('type_alerte', 'formation')
-                ->where('message', 'LIKE', '%BA1%')
-                ->delete();
-        }
-
+    // =========================================================
+    // 6. BA1 - Supprimer TOUTES les alertes si le certificat est obtenu
+    // =========================================================
+    if (in_array('BA1', $certificatsObtenus)) {
+        Alerte::where('militaire_id', $militaire->id)
+            ->where('type_alerte', 'formation')
+            ->where('message', 'LIKE', '%BA1%')
+            ->delete();
+    } else {
         // BA1 - Alerte si non obtenu
         if (in_array($grade, ['Sergent-Chef', 'Adjudant', 'Adjudant-Chef']) && !in_array('BA1', $certificatsObtenus) && in_array('CIA', $certificatsObtenus) && $conditionsBase && $anciennete >= 8) {
             $certifCIA = $militaire->certificats->where('niveau_certificat', 'CIA')->first();
@@ -946,17 +977,17 @@ class MilitaireController extends Controller
             }
             $this->creerAlerteFormation($militaire, 'BA1', "Brevet d'Aptitude Niveau 1", $dateProposition, $dateConditions);
         }
+    }
 
-        // =========================================================
-        // 5. BA2 - Supprimer l'alerte si le certificat est obtenu
-        // =========================================================
-        if (in_array('BA2', $certificatsObtenus)) {
-            Alerte::where('militaire_id', $militaire->id)
-                ->where('type_alerte', 'formation')
-                ->where('message', 'LIKE', '%BA2%')
-                ->delete();
-        }
-
+    // =========================================================
+    // 7. BA2 - Supprimer TOUTES les alertes si le certificat est obtenu
+    // =========================================================
+    if (in_array('BA2', $certificatsObtenus)) {
+        Alerte::where('militaire_id', $militaire->id)
+            ->where('type_alerte', 'formation')
+            ->where('message', 'LIKE', '%BA2%')
+            ->delete();
+    } else {
         // BA2 - Alerte si non obtenu
         if (in_array($grade, ['Adjudant', 'Adjudant-Chef']) && !in_array('BA2', $certificatsObtenus) && in_array('BA1', $certificatsObtenus) && $conditionsBase) {
             $certifBA1 = $militaire->certificats->where('niveau_certificat', 'BA1')->first();
@@ -966,49 +997,17 @@ class MilitaireController extends Controller
             }
             $this->creerAlerteFormation($militaire, 'BA2', "Brevet d'Aptitude Niveau 2", $dateProposition, $dateConditions);
         }
+    }
 
-        // =========================================================
-        // 6. APLI - Supprimer l'alerte si le certificat est obtenu
-        // =========================================================
-        if (in_array('APLI', $certificatsObtenus)) {
-            Alerte::where('militaire_id', $militaire->id)
-                ->where('type_alerte', 'formation')
-                ->where('message', 'LIKE', '%APLI%')
-                ->delete();
-        }
-
-        // APLI - Alerte si non obtenu
-        if (in_array($grade, ['Sous-lieutenant', 'Lieutenant', 'Capitaine']) && !in_array('APLI', $certificatsObtenus) && !in_array('CFCU', $certificatsObtenus) && $age <= 50) {
-            $this->creerAlerteFormation($militaire, 'APLI', "Cour d'Application", $dateProposition, null);
-        }
-
-        // =========================================================
-        // 7. CFCU - Supprimer l'alerte si le certificat est obtenu
-        // =========================================================
-        if (in_array('CFCU', $certificatsObtenus)) {
-            Alerte::where('militaire_id', $militaire->id)
-                ->where('type_alerte', 'formation')
-                ->where('message', 'LIKE', '%CFCU%')
-                ->delete();
-        }
-
-        // CFCU - Alerte si non obtenu
-        if (in_array($grade, ['Lieutenant', 'Capitaine']) && !in_array('CFCU', $certificatsObtenus)) {
-            if ($grade == 'Capitaine' || in_array('APLI', $certificatsObtenus)) {
-                $this->creerAlerteFormation($militaire, 'CFCU', "Cour des Futurs Commandants d'Unité", $dateProposition, null);
-            }
-        }
-
-        // =========================================================
-        // 8. CEM - Supprimer l'alerte si le certificat est obtenu
-        // =========================================================
-        if (in_array('CEM', $certificatsObtenus)) {
-            Alerte::where('militaire_id', $militaire->id)
-                ->where('type_alerte', 'formation')
-                ->where('message', 'LIKE', '%CEM%')
-                ->delete();
-        }
-
+    // =========================================================
+    // 8. CEM - Supprimer TOUTES les alertes si le certificat est obtenu
+    // =========================================================
+    if (in_array('CEM', $certificatsObtenus)) {
+        Alerte::where('militaire_id', $militaire->id)
+            ->where('type_alerte', 'formation')
+            ->where('message', 'LIKE', '%CEM%')
+            ->delete();
+    } else {
         // CEM - Alerte si non obtenu
         if (in_array($grade, ['Capitaine', 'Commandant']) && !in_array('CEM', $certificatsObtenus)) {
             if (($grade == 'Capitaine' && $ancienneteGrade >= 3) || $grade == 'Commandant') {
@@ -1017,37 +1016,38 @@ class MilitaireController extends Controller
                 }
             }
         }
+    }
 
-        // =========================================================
-        // 9. CERT_EM - Supprimer l'alerte si le certificat est obtenu
-        // =========================================================
-        if (in_array('CERT_EM', $certificatsObtenus)) {
-            Alerte::where('militaire_id', $militaire->id)
-                ->where('type_alerte', 'formation')
-                ->where('message', 'LIKE', '%CERT_EM%')
-                ->delete();
-        }
-
+    // =========================================================
+    // 9. CERT_EM - Supprimer TOUTES les alertes si le certificat est obtenu
+    // =========================================================
+    if (in_array('CERT_EM', $certificatsObtenus)) {
+        Alerte::where('militaire_id', $militaire->id)
+            ->where('type_alerte', 'formation')
+            ->where('message', 'LIKE', '%CERT_EM%')
+            ->delete();
+    } else {
         // CERT_EM - Alerte si non obtenu
         if ($grade == 'Commandant' && $age > 45 && !in_array('CERT_EM', $certificatsObtenus)) {
             $this->creerAlerteFormation($militaire, 'CERT_EM', "Certificat d'État-Major", $dateProposition, null);
         }
+    }
 
-        // =========================================================
-        // 10. ECOLE_GUERRE - Supprimer l'alerte si le certificat est obtenu
-        // =========================================================
-        if (in_array('ECOLE_GUERRE', $certificatsObtenus)) {
-            Alerte::where('militaire_id', $militaire->id)
-                ->where('type_alerte', 'formation')
-                ->where('message', 'LIKE', '%ECOLE_GUERRE%')
-                ->delete();
-        }
-
+    // =========================================================
+    // 10. ECOLE_GUERRE - Supprimer TOUTES les alertes si le certificat est obtenu
+    // =========================================================
+    if (in_array('ECOLE_GUERRE', $certificatsObtenus)) {
+        Alerte::where('militaire_id', $militaire->id)
+            ->where('type_alerte', 'formation')
+            ->where('message', 'LIKE', '%ECOLE_GUERRE%')
+            ->delete();
+    } else {
         // ECOLE_GUERRE - Alerte si non obtenu
         if (in_array($grade, ['Lieutenant-colonel', 'Colonel', 'Colonel-Major']) && !in_array('ECOLE_GUERRE', $certificatsObtenus) && $ancienneteGrade >= 2 && $age <= 53) {
             $this->creerAlerteFormation($militaire, 'ECOLE_GUERRE', "École de Guerre", $dateProposition, null);
         }
     }
+}
 
     private function creerAlertePromotion(Militaire $militaire, string $gradeCible, $dateProposition, $dateAnciennete): void
     {

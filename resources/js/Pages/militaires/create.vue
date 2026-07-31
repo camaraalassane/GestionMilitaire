@@ -147,7 +147,7 @@
                                         </div>
                                     </div>
 
-                                    <!-- ✅ STATUT ET TÉLÉPHONE sur la même ligne -->
+                                    <!-- STATUT ET TÉLÉPHONE sur la même ligne -->
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                         <div class="field">
                                             <label for="statut" class="block text-sm font-medium text-gray-700 mb-2">
@@ -171,7 +171,51 @@
                                         </div>
                                     </div>
 
-                                    <!-- ✅ PERMIS, JUSTICE, DISCIPLINE sur la même ligne -->
+                                    <!-- SEXE & GROUPE SANGUIN sur la même ligne -->
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                        <div class="field">
+                                            <label for="sexe" class="block text-sm font-medium text-gray-700 mb-2">
+                                                <i class="pi pi-user text-sky-500 mr-1"></i> Sexe
+                                            </label>
+                                            <Select v-model="form.sexe" :options="sexeOptions" optionLabel="label"
+                                                optionValue="value" placeholder="Sélectionner" class="w-full"
+                                                showClear />
+                                        </div>
+
+                                        <div class="field">
+                                            <label for="groupe_sanguin"
+                                                class="block text-sm font-medium text-gray-700 mb-2">
+                                                <i class="pi pi-heart text-red-500 mr-1"></i> Groupe sanguin
+                                            </label>
+                                            <Select v-model="form.groupe_sanguin" :options="groupeSanguinOptions"
+                                                optionLabel="label" optionValue="value" placeholder="Sélectionner"
+                                                class="w-full" showClear />
+                                        </div>
+                                    </div>
+
+                                    <!-- PERSONNE À CONTACTER & TÉLÉPHONE DE LA PERSONNE sur la même ligne -->
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                        <div class="field">
+                                            <label for="personne_a_contacter"
+                                                class="block text-sm font-medium text-gray-700 mb-2">
+                                                <i class="pi pi-users text-sky-500 mr-1"></i> Personne à contacter
+                                            </label>
+                                            <InputText id="personne_a_contacter" v-model="form.personne_a_contacter"
+                                                class="w-full" placeholder="Nom et prénom" />
+                                        </div>
+
+                                        <div class="field">
+                                            <label for="telephone_personne_contacter"
+                                                class="block text-sm font-medium text-gray-700 mb-2">
+                                                <i class="pi pi-phone text-sky-500 mr-1"></i> Téléphone de la personne
+                                            </label>
+                                            <InputText id="telephone_personne_contacter"
+                                                v-model="form.telephone_personne_contacter" class="w-full"
+                                                placeholder="Ex: +225 05 08 XX XX XX" />
+                                        </div>
+                                    </div>
+
+                                    <!-- PERMIS, JUSTICE, DISCIPLINE sur la même ligne -->
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                                         <div class="flex items-center gap-2 p-2 border rounded-lg bg-gray-50">
                                             <Checkbox id="a_permis_conduire" v-model="form.a_permis_conduire"
@@ -199,7 +243,7 @@
                                         </div>
                                     </div>
 
-                                    <!-- Certificats et formations - 2 par ligne avec document en dessous -->
+                                    <!-- Certificats et formations -->
                                     <Card v-if="showFormationsSection" class="mt-6">
                                         <template #title>
                                             <div class="flex items-center gap-2">
@@ -216,12 +260,10 @@
                                             </div>
 
                                             <div v-else>
-                                                <!-- ✅ 2 certificats par ligne -->
                                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     <div v-for="certificat in filteredCertificats" :key="certificat.id"
                                                         class="border rounded-lg p-3 hover:border-sky-300 transition-all">
 
-                                                        <!-- En-tête du certificat -->
                                                         <div class="flex items-start gap-2">
                                                             <Checkbox :id="'certif_' + certificat.id"
                                                                 v-model="form.certificats[certificat.id].obtenu"
@@ -236,7 +278,6 @@
                                                             </label>
                                                         </div>
 
-                                                        <!-- Date d'obtention -->
                                                         <div class="mt-2">
                                                             <label :for="'date_certif_' + certificat.id"
                                                                 class="block text-xs text-gray-600 mb-1">
@@ -257,13 +298,10 @@
                                                             </small>
                                                         </div>
 
-                                                        <!-- ✅ Document - en dessous de la date, discret -->
                                                         <div class="mt-2">
                                                             <label :for="'doc_' + certificat.id"
                                                                 class="block text-xs text-gray-600 mb-1">
-                                                                Document <span
-                                                                    v-if="form.certificats[certificat.id].obtenu"
-                                                                    class="text-red-500">*</span>
+                                                                Document (optionnel)
                                                             </label>
                                                             <div class="flex items-center gap-2">
                                                                 <FileUpload :id="'doc_' + certificat.id" mode="basic"
@@ -271,8 +309,7 @@
                                                                     chooseLabel="📎 Choisir" customUpload
                                                                     @select="(event) => onFileSelect(certificat.id, event)"
                                                                     :disabled="!form.certificats[certificat.id].obtenu"
-                                                                    class="w-full"
-                                                                    :class="{ 'p-invalid': docErrors[certificat.id] }" />
+                                                                    class="w-full" />
                                                                 <Button v-if="form.certificats[certificat.id].document"
                                                                     icon="pi pi-times"
                                                                     class="p-button-rounded p-button-danger p-button-text"
@@ -289,11 +326,6 @@
                                                                     formatFileSize(form.certificats[certificat.id].document.size)
                                                                 }})</span>
                                                             </div>
-                                                            <small
-                                                                v-if="docErrors[certificat.id] && form.certificats[certificat.id].obtenu && !form.certificats[certificat.id].document"
-                                                                class="text-red-500 text-xs">
-                                                                Document obligatoire
-                                                            </small>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -301,7 +333,6 @@
                                         </template>
                                     </Card>
 
-                                    <!-- Message si aucun grade sélectionné -->
                                     <div v-else class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                                         <div class="flex items-center gap-2">
                                             <i class="pi pi-info-circle text-yellow-600"></i>
@@ -373,6 +404,22 @@ const statutOptions = [
     { label: 'Stage', value: 'stage' }
 ];
 
+const sexeOptions = [
+    { label: 'M', value: 'M' },
+    { label: 'F', value: 'F' }
+];
+
+const groupeSanguinOptions = [
+    { label: 'A+', value: 'A+' },
+    { label: 'A-', value: 'A-' },
+    { label: 'B+', value: 'B+' },
+    { label: 'B-', value: 'B-' },
+    { label: 'AB+', value: 'AB+' },
+    { label: 'AB-', value: 'AB-' },
+    { label: 'O+', value: 'O+' },
+    { label: 'O-', value: 'O-' }
+];
+
 const formationsOfficiers = [
     'APLI', 'CFCU', 'CEM', 'Certificat État-major',
     'Certificat d\'état-major', 'École d\'État-Major', 'ESM',
@@ -399,13 +446,16 @@ const form = reactive({
     fonction_actuelle: '',
     telephone: '',
     statut: 'actif',
+    sexe: null,
+    groupe_sanguin: null,
+    personne_a_contacter: '',
+    telephone_personne_contacter: '',
     a_permis_conduire: false,
     a_fait_justice: false,
     a_fait_discipline: false,
     certificats: {}
 });
 
-// Initialisation des certificats
 if (props.certificats && Array.isArray(props.certificats)) {
     props.certificats.forEach(certificat => {
         form.certificats[certificat.id] = {
@@ -502,9 +552,6 @@ const onCertificatChange = (certifId) => {
         if (!form.certificats[certifId].date_obtention) {
             dateErrors.value[certifId] = true;
         }
-        if (!form.certificats[certifId].document) {
-            docErrors.value[certifId] = true;
-        }
     }
 };
 
@@ -520,10 +567,8 @@ const onFileSelect = (certifId, event) => {
             });
             return;
         }
-
         form.certificats[certifId].document = file;
         docErrors.value[certifId] = false;
-
         toast.add({
             severity: 'success',
             summary: 'Fichier ajouté',
@@ -552,32 +597,24 @@ const formatFileSize = (bytes) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const validateDatesAndDocs = () => {
+const validateDates = () => {
     let isValid = true;
     dateErrors.value = {};
-    docErrors.value = {};
-
     Object.keys(form.certificats).forEach(certifId => {
-        if (form.certificats[certifId].obtenu) {
-            if (!form.certificats[certifId].date_obtention) {
-                dateErrors.value[certifId] = true;
-                isValid = false;
-            }
-            if (!form.certificats[certifId].document) {
-                docErrors.value[certifId] = true;
-                isValid = false;
-            }
+        if (form.certificats[certifId].obtenu && !form.certificats[certifId].date_obtention) {
+            dateErrors.value[certifId] = true;
+            isValid = false;
         }
     });
     return isValid;
 };
 
 const submitForm = () => {
-    if (!validateDatesAndDocs()) {
+    if (!validateDates()) {
         toast.add({
             severity: 'error',
             summary: 'Erreur',
-            detail: 'Veuillez renseigner les dates d\'obtention et les documents pour les certificats cochés',
+            detail: 'Veuillez renseigner les dates d\'obtention pour les certificats cochés',
             life: 5000
         });
         return;
@@ -591,7 +628,8 @@ const submitForm = () => {
     const textFields = [
         'matricule', 'nom', 'prenom', 'grade_actuel', 'specialite',
         'position_actuelle', 'fonction_passee', 'fonction_actuelle',
-        'telephone', 'statut'
+        'telephone', 'statut',
+        'sexe', 'groupe_sanguin', 'personne_a_contacter', 'telephone_personne_contacter'
     ];
 
     textFields.forEach(field => {

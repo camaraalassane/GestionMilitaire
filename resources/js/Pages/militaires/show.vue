@@ -31,10 +31,9 @@
                             </template>
 
                             <template #content>
-                                <!-- Informations principales en grille 2 colonnes -->
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                                    <!-- LIGNE 1 : Matricule & Date de naissance -->
+                                    <!-- Matricule -->
                                     <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
                                         <div class="flex items-center gap-2 mb-2">
                                             <i class="pi pi-id-card text-sky-500"></i>
@@ -44,6 +43,7 @@
                                             class="text-base" />
                                     </div>
 
+                                    <!-- Date de naissance -->
                                     <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
                                         <div class="flex items-center gap-2 mb-2">
                                             <i class="pi pi-calendar text-sky-500"></i>
@@ -53,7 +53,7 @@
                                         <small class="text-gray-500">{{ militaire.age }} ans</small>
                                     </div>
 
-                                    <!-- LIGNE 2 : Grade actuel & Statut -->
+                                    <!-- Grade actuel -->
                                     <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
                                         <div class="flex items-center gap-2 mb-2">
                                             <i class="pi pi-briefcase text-sky-500"></i>
@@ -67,6 +67,7 @@
                                         </div>
                                     </div>
 
+                                    <!-- Statut -->
                                     <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
                                         <div class="flex items-center gap-2 mb-2">
                                             <i class="pi pi-tag text-sky-500"></i>
@@ -75,7 +76,7 @@
                                         <Tag :value="militaire.statut" :style="getStatutStyle(militaire.statut)" />
                                     </div>
 
-                                    <!-- LIGNE 3 : Téléphone & Permis de conduire -->
+                                    <!-- Téléphone -->
                                     <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
                                         <div class="flex items-center gap-2 mb-2">
                                             <i class="pi pi-phone text-sky-500"></i>
@@ -84,6 +85,27 @@
                                         <div class="text-gray-800">{{ militaire.telephone || '-' }}</div>
                                     </div>
 
+                                    <!-- Sexe -->
+                                    <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <i class="pi pi-user text-sky-500"></i>
+                                            <span class="font-medium text-gray-700">Sexe</span>
+                                        </div>
+                                        <Tag :value="militaire.sexe || 'Non renseigné'"
+                                            :style="militaire.sexe === 'M' ? { background: '#7dd3fc', color: '#0369a1' } : militaire.sexe === 'F' ? { background: '#f9a8d4', color: '#9d174d' } : { background: '#e5e7eb', color: '#6b7280' }" />
+                                    </div>
+
+                                    <!-- Groupe sanguin -->
+                                    <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <i class="pi pi-heart text-red-500"></i>
+                                            <span class="font-medium text-gray-700">Groupe sanguin</span>
+                                        </div>
+                                        <Tag :value="militaire.groupe_sanguin || 'Non renseigné'"
+                                            style="background: #bae6fd; color: #0369a1;" />
+                                    </div>
+
+                                    <!-- Permis de conduire -->
                                     <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
                                         <div class="flex items-center gap-2 mb-2">
                                             <i class="pi pi-car text-sky-500"></i>
@@ -93,7 +115,7 @@
                                             :style="militaire.a_permis_conduire ? { background: '#7dd3fc', color: '#0369a1' } : { background: '#e5e7eb', color: '#6b7280' }" />
                                     </div>
 
-                                    <!-- LIGNE 4 : Date d'entrée en service & Ancienneté dans le grade -->
+                                    <!-- Date d'entrée en service -->
                                     <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
                                         <div class="flex items-center gap-2 mb-2">
                                             <i class="pi pi-calendar-plus text-sky-500"></i>
@@ -104,6 +126,7 @@
                                             service</small>
                                     </div>
 
+                                    <!-- Ancienneté dans le grade -->
                                     <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
                                         <div class="flex items-center gap-2 mb-2">
                                             <i class="pi pi-chart-line text-sky-500"></i>
@@ -113,7 +136,7 @@
                                             style="background: #bae6fd; color: #0369a1;" />
                                     </div>
 
-                                    <!-- LIGNE 5 : Date de retraite & Spécialité -->
+                                    <!-- Date de retraite -->
                                     <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
                                         <div class="flex items-center gap-2 mb-2">
                                             <i class="pi pi-calendar-minus text-sky-500"></i>
@@ -127,6 +150,7 @@
                                         <span v-else class="text-gray-400">Non calculée</span>
                                     </div>
 
+                                    <!-- Spécialité -->
                                     <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
                                         <div class="flex items-center gap-2 mb-2">
                                             <i class="pi pi-book text-sky-500"></i>
@@ -135,7 +159,7 @@
                                         <div class="text-gray-800">{{ militaire.specialite || '-' }}</div>
                                     </div>
 
-                                    <!-- LIGNE 6 : Position actuelle & Fonction passée -->
+                                    <!-- Position actuelle -->
                                     <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
                                         <div class="flex items-center gap-2 mb-2">
                                             <i class="pi pi-map-marker text-sky-500"></i>
@@ -144,6 +168,7 @@
                                         <div class="text-gray-800">{{ militaire.position_actuelle || '-' }}</div>
                                     </div>
 
+                                    <!-- Fonction passée -->
                                     <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
                                         <div class="flex items-center gap-2 mb-2">
                                             <i class="pi pi-history text-sky-500"></i>
@@ -152,7 +177,7 @@
                                         <div class="text-gray-800">{{ militaire.fonction_passee || '-' }}</div>
                                     </div>
 
-                                    <!-- LIGNE 7 : Fonction actuelle & Problèmes -->
+                                    <!-- Fonction actuelle -->
                                     <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
                                         <div class="flex items-center gap-2 mb-2">
                                             <i class="pi pi-briefcase text-sky-500"></i>
@@ -161,6 +186,7 @@
                                         <div class="text-gray-800">{{ militaire.fonction_actuelle || '-' }}</div>
                                     </div>
 
+                                    <!-- Problème judiciaire -->
                                     <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
                                         <div class="flex items-center gap-2 mb-2">
                                             <i class="pi pi-gavel text-amber-500"></i>
@@ -170,9 +196,8 @@
                                             :style="militaire.a_fait_justice ? { background: '#fecaca', color: '#991b1b' } : { background: '#7dd3fc', color: '#0369a1' }" />
                                     </div>
 
-                                    <!-- LIGNE 8 : Problème disciplinaire (sur une ligne à part pour l'alignement) -->
-                                    <div
-                                        class="border rounded-lg p-4 hover:border-sky-300 transition-all md:col-span-1">
+                                    <!-- Problème disciplinaire -->
+                                    <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
                                         <div class="flex items-center gap-2 mb-2">
                                             <i class="pi pi-exclamation-triangle text-amber-500"></i>
                                             <span class="font-medium text-gray-700">Problème disciplinaire</span>
@@ -180,9 +205,29 @@
                                         <Tag :value="militaire.a_fait_discipline ? 'Oui' : 'Non'"
                                             :style="militaire.a_fait_discipline ? { background: '#fecaca', color: '#991b1b' } : { background: '#7dd3fc', color: '#0369a1' }" />
                                     </div>
+
+                                    <!-- Personne à contacter -->
+                                    <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <i class="pi pi-users text-sky-500"></i>
+                                            <span class="font-medium text-gray-700">Personne à contacter</span>
+                                        </div>
+                                        <div class="text-gray-800">{{ militaire.personne_a_contacter || '-' }}</div>
+                                    </div>
+
+                                    <!-- Téléphone de la personne à contacter -->
+                                    <div class="border rounded-lg p-4 hover:border-sky-300 transition-all">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <i class="pi pi-phone text-sky-500"></i>
+                                            <span class="font-medium text-gray-700">Tél. de la personne</span>
+                                        </div>
+                                        <div class="text-gray-800">{{ militaire.telephone_personne_contacter || '-' }}
+                                        </div>
+                                    </div>
+
                                 </div>
 
-                                <!-- Certificats obtenus avec documents -->
+                                <!-- Certificats obtenus -->
                                 <Divider>
                                     <div class="flex items-center gap-2">
                                         <i class="pi pi-verified text-sky-500"></i>
@@ -214,7 +259,6 @@
                                             {{ slotProps.data.date_obtention ?? '-' }}
                                         </template>
                                     </Column>
-                                    <!-- ✅ NOUVELLE COLONNE : Document -->
                                     <Column header="Document" style="min-width: 140px;">
                                         <template #body="slotProps">
                                             <div v-if="slotProps.data.document_id">
@@ -232,7 +276,7 @@
                                     </Column>
                                 </DataTable>
 
-                                <!-- Alertes associées -->
+                                <!-- Alertes -->
                                 <Divider>
                                     <div class="flex items-center gap-2">
                                         <i class="pi pi-bell text-amber-500"></i>
@@ -278,7 +322,7 @@
             </div>
         </div>
 
-        <!-- Dialog de confirmation de suppression -->
+        <!-- Dialog suppression -->
         <Dialog v-model:visible="deleteDialogVisible" header="Confirmation" :modal="true"
             :style="{ width: '90%', maxWidth: '400px' }" class="p-fluid">
             <div class="flex items-center gap-3 mb-4">
@@ -317,28 +361,15 @@ import Toast from 'primevue/toast';
 import { useToast } from 'primevue/usetoast';
 
 const props = defineProps({
-    militaire: {
-        type: Object,
-        required: true
-    },
-    certificats: {
-        type: Array,
-        default: () => []
-    },
-    alertes: {
-        type: Array,
-        default: () => []
-    },
-    contratActif: {
-        type: Object,
-        default: null
-    }
+    militaire: { type: Object, required: true },
+    certificats: { type: Array, default: () => [] },
+    alertes: { type: Array, default: () => [] },
+    contratActif: { type: Object, default: null }
 });
 
 const toast = useToast();
 const deleteDialogVisible = ref(false);
 
-// Style pour les badges selon le statut
 const getStatutStyle = (statut) => {
     const styles = {
         'actif': { background: '#7dd3fc', color: '#0369a1' },
@@ -351,7 +382,6 @@ const getStatutStyle = (statut) => {
     return styles[statut] || { background: '#e5e7eb', color: '#374151' };
 };
 
-// Style pour les alertes
 const getAlerteStyle = (type) => {
     const styles = {
         'promotion': { background: '#bae6fd', color: '#0369a1' },
@@ -362,7 +392,6 @@ const getAlerteStyle = (type) => {
     return styles[type] || { background: '#e5e7eb', color: '#374151' };
 };
 
-// Obtenir le libellé du type d'alerte
 const getTypeLabel = (type) => {
     const labels = {
         'promotion': 'Promotion',
@@ -373,46 +402,24 @@ const getTypeLabel = (type) => {
     return labels[type] || type;
 };
 
-// Formater l'ancienneté
 const formatAnciennete = (annees) => {
     if (!annees && annees !== 0) return '0 ans';
     return `${Math.floor(annees)} ans`;
 };
 
-// Navigation
-const editMilitaire = () => {
-    router.visit(route('militaires.edit', props.militaire.id));
-};
+const editMilitaire = () => { router.visit(route('militaires.edit', props.militaire.id)); };
+const goBack = () => { router.visit(route('militaires.index')); };
+const confirmDelete = () => { deleteDialogVisible.value = true; };
 
-const goBack = () => {
-    router.visit(route('militaires.index'));
-};
-
-// Confirmation de suppression
-const confirmDelete = () => {
-    deleteDialogVisible.value = true;
-};
-
-// Supprimer un militaire
 const deleteMilitaire = () => {
     router.delete(route('militaires.destroy', props.militaire.id), {
         onSuccess: () => {
             deleteDialogVisible.value = false;
-            toast.add({
-                severity: 'success',
-                summary: 'Succès',
-                detail: 'Militaire supprimé avec succès',
-                life: 3000
-            });
+            toast.add({ severity: 'success', summary: 'Succès', detail: 'Militaire supprimé avec succès', life: 3000 });
             router.visit(route('militaires.index'));
         },
         onError: () => {
-            toast.add({
-                severity: 'error',
-                summary: 'Erreur',
-                detail: 'Impossible de supprimer le militaire',
-                life: 3000
-            });
+            toast.add({ severity: 'error', summary: 'Erreur', detail: 'Impossible de supprimer le militaire', life: 3000 });
         }
     });
 };
@@ -492,7 +499,6 @@ const deleteMilitaire = () => {
     color: white;
 }
 
-/* Style pour les liens de téléchargement */
 a {
     text-decoration: none;
 }

@@ -22,7 +22,6 @@
                                 <template #content>
                                     <!-- Informations générales -->
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                        <!-- Matricule -->
                                         <div class="field">
                                             <label for="matricule" class="block text-sm font-medium text-gray-700 mb-2">
                                                 Matricule <span class="text-red-500">*</span>
@@ -33,7 +32,6 @@
                                             }}</small>
                                         </div>
 
-                                        <!-- Grade actuel -->
                                         <div class="field">
                                             <label for="grade_actuel"
                                                 class="block text-sm font-medium text-gray-700 mb-2">
@@ -147,7 +145,7 @@
                                         </div>
                                     </div>
 
-                                    <!-- ✅ STATUT ET TÉLÉPHONE sur la même ligne -->
+                                    <!-- STATUT ET TÉLÉPHONE -->
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                         <div class="field">
                                             <label for="statut" class="block text-sm font-medium text-gray-700 mb-2">
@@ -171,7 +169,51 @@
                                         </div>
                                     </div>
 
-                                    <!-- ✅ PERMIS, JUSTICE, DISCIPLINE sur la même ligne -->
+                                    <!-- SEXE & GROUPE SANGUIN -->
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                        <div class="field">
+                                            <label for="sexe" class="block text-sm font-medium text-gray-700 mb-2">
+                                                <i class="pi pi-user text-sky-500 mr-1"></i> Sexe
+                                            </label>
+                                            <Select v-model="form.sexe" :options="sexeOptions" optionLabel="label"
+                                                optionValue="value" placeholder="Sélectionner" class="w-full"
+                                                showClear />
+                                        </div>
+
+                                        <div class="field">
+                                            <label for="groupe_sanguin"
+                                                class="block text-sm font-medium text-gray-700 mb-2">
+                                                <i class="pi pi-heart text-red-500 mr-1"></i> Groupe sanguin
+                                            </label>
+                                            <Select v-model="form.groupe_sanguin" :options="groupeSanguinOptions"
+                                                optionLabel="label" optionValue="value" placeholder="Sélectionner"
+                                                class="w-full" showClear />
+                                        </div>
+                                    </div>
+
+                                    <!-- PERSONNE À CONTACTER & TÉLÉPHONE DE LA PERSONNE -->
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                        <div class="field">
+                                            <label for="personne_a_contacter"
+                                                class="block text-sm font-medium text-gray-700 mb-2">
+                                                <i class="pi pi-users text-sky-500 mr-1"></i> Personne à contacter
+                                            </label>
+                                            <InputText id="personne_a_contacter" v-model="form.personne_a_contacter"
+                                                class="w-full" placeholder="Nom et prénom" />
+                                        </div>
+
+                                        <div class="field">
+                                            <label for="telephone_personne_contacter"
+                                                class="block text-sm font-medium text-gray-700 mb-2">
+                                                <i class="pi pi-phone text-sky-500 mr-1"></i> Téléphone de la personne
+                                            </label>
+                                            <InputText id="telephone_personne_contacter"
+                                                v-model="form.telephone_personne_contacter" class="w-full"
+                                                placeholder="Ex: +225 05 08 XX XX XX" />
+                                        </div>
+                                    </div>
+
+                                    <!-- PERMIS, JUSTICE, DISCIPLINE -->
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                                         <div class="flex items-center gap-2 p-2 border rounded-lg bg-gray-50">
                                             <Checkbox id="a_permis_conduire" v-model="form.a_permis_conduire"
@@ -199,7 +241,7 @@
                                         </div>
                                     </div>
 
-                                    <!-- Certificats et formations - 2 par ligne avec document -->
+                                    <!-- Certificats et formations -->
                                     <Card v-if="showFormationsSection" class="mt-6">
                                         <template #title>
                                             <div class="flex items-center gap-2">
@@ -216,12 +258,10 @@
                                             </div>
 
                                             <div v-else>
-                                                <!-- ✅ 2 certificats par ligne -->
                                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     <div v-for="certificat in filteredCertificats" :key="certificat.id"
                                                         class="border rounded-lg p-3 hover:border-sky-300 transition-all">
 
-                                                        <!-- En-tête du certificat -->
                                                         <div class="flex items-start gap-2">
                                                             <Checkbox :id="'certif_' + certificat.id"
                                                                 v-model="form.certificats[certificat.id].obtenu"
@@ -236,7 +276,6 @@
                                                             </label>
                                                         </div>
 
-                                                        <!-- Date d'obtention -->
                                                         <div class="mt-2">
                                                             <label :for="'date_certif_' + certificat.id"
                                                                 class="block text-xs text-gray-600 mb-1">
@@ -257,13 +296,10 @@
                                                             </small>
                                                         </div>
 
-                                                        <!-- ✅ Document - en dessous de la date -->
                                                         <div class="mt-2">
                                                             <label :for="'doc_' + certificat.id"
                                                                 class="block text-xs text-gray-600 mb-1">
-                                                                Document <span
-                                                                    v-if="form.certificats[certificat.id].obtenu"
-                                                                    class="text-red-500">*</span>
+                                                                Document (optionnel)
                                                             </label>
                                                             <div class="flex items-center gap-2">
                                                                 <FileUpload :id="'doc_' + certificat.id" mode="basic"
@@ -271,16 +307,15 @@
                                                                     chooseLabel="📎 Choisir" customUpload
                                                                     @select="(event) => onFileSelect(certificat.id, event)"
                                                                     :disabled="!form.certificats[certificat.id].obtenu"
-                                                                    class="w-full"
-                                                                    :class="{ 'p-invalid': docErrors[certificat.id] }" />
-                                                                <Button v-if="form.certificats[certificat.id].document"
+                                                                    class="w-full" />
+                                                                <Button
+                                                                    v-if="form.certificats[certificat.id].document || form.certificats[certificat.id].document_existant"
                                                                     icon="pi pi-times"
                                                                     class="p-button-rounded p-button-danger p-button-text"
                                                                     size="small" @click="removeDocument(certificat.id)"
                                                                     title="Supprimer le document" />
                                                             </div>
 
-                                                            <!-- Affichage du document existant ou du nouveau fichier -->
                                                             <div v-if="form.certificats[certificat.id].document || form.certificats[certificat.id].document_existant"
                                                                 class="text-xs text-green-600 flex items-center gap-1 mt-1">
                                                                 <i class="pi pi-check-circle"></i>
@@ -304,11 +339,6 @@
                                                                     (existant)
                                                                 </span>
                                                             </div>
-                                                            <small
-                                                                v-if="docErrors[certificat.id] && form.certificats[certificat.id].obtenu && !form.certificats[certificat.id].document && !form.certificats[certificat.id].document_existant"
-                                                                class="text-red-500 text-xs">
-                                                                Document obligatoire
-                                                            </small>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -325,7 +355,7 @@
                                         </div>
                                     </div>
 
-                                    <!-- Boutons d'action -->
+                                    <!-- Boutons -->
                                     <div class="flex justify-end gap-2 mt-6">
                                         <Button label="Annuler" icon="pi pi-times"
                                             class="p-button-outlined border-gray-300 text-gray-700 hover:bg-gray-100"
@@ -362,22 +392,10 @@ import FileUpload from 'primevue/fileupload';
 import { useToast } from 'primevue/usetoast';
 
 const props = defineProps({
-    militaire: {
-        type: Object,
-        required: true
-    },
-    grades: {
-        type: Array,
-        required: true
-    },
-    certificats: {
-        type: Array,
-        required: true
-    },
-    certificats_du_militaire: {
-        type: Object,
-        default: () => ({})
-    }
+    militaire: { type: Object, required: true },
+    grades: { type: Array, required: true },
+    certificats: { type: Array, required: true },
+    certificats_du_militaire: { type: Object, default: () => ({}) }
 });
 
 const toast = useToast();
@@ -395,6 +413,22 @@ const statutOptions = [
     { label: 'Stage', value: 'stage' }
 ];
 
+const sexeOptions = [
+    { label: 'M', value: 'M' },
+    { label: 'F', value: 'F' }
+];
+
+const groupeSanguinOptions = [
+    { label: 'A+', value: 'A+' },
+    { label: 'A-', value: 'A-' },
+    { label: 'B+', value: 'B+' },
+    { label: 'B-', value: 'B-' },
+    { label: 'AB+', value: 'AB+' },
+    { label: 'AB-', value: 'AB-' },
+    { label: 'O+', value: 'O+' },
+    { label: 'O-', value: 'O-' }
+];
+
 const formationsOfficiers = [
     'APLI', 'CFCU', 'CEM', 'Certificat État-major',
     'Certificat d\'état-major', 'École d\'État-Major', 'ESM',
@@ -407,7 +441,6 @@ const formationsOfficiers = [
 
 const officierTypes = ['officier général', 'officier supérieur', 'officier subalterne'];
 
-// FORMULAIRE
 const form = reactive({
     id: props.militaire.id,
     matricule: props.militaire.matricule || '',
@@ -421,27 +454,29 @@ const form = reactive({
     position_actuelle: props.militaire.position_actuelle || '',
     fonction_passee: props.militaire.fonction_passee || '',
     fonction_actuelle: props.militaire.fonction_actuelle || '',
-    telephone: props.militaire.telephone || '', // ✅ NOUVEAU
+    telephone: props.militaire.telephone || '',
     statut: props.militaire.statut || 'actif',
+    sexe: props.militaire.sexe || null,
+    groupe_sanguin: props.militaire.groupe_sanguin || null,
+    personne_a_contacter: props.militaire.personne_a_contacter || '',
+    telephone_personne_contacter: props.militaire.telephone_personne_contacter || '',
     a_permis_conduire: props.militaire.a_permis_conduire || false,
     a_fait_justice: props.militaire.a_fait_justice || false,
     a_fait_discipline: props.militaire.a_fait_discipline || false,
     certificats: {}
 });
 
-// Initialisation des certificats avec documents
 props.certificats.forEach(certificat => {
     const certifExistant = props.certificats_du_militaire[certificat.id];
     form.certificats[certificat.id] = {
         obtenu: !!certifExistant,
         date_obtention: certifExistant?.date_obtention ? new Date(certifExistant.date_obtention) : null,
-        document: null, // Nouveau fichier uploadé
-        document_existant: certifExistant?.document || null, // Document existant en base
+        document: null,
+        document_existant: certifExistant?.document || null,
         document_id: certifExistant?.document?.id || null
     };
 });
 
-// Fonctions
 const estFormationOfficier = (certificat) => {
     const nom = certificat.nom_certificat;
     const niveau = certificat.niveau_certificat;
@@ -454,7 +489,6 @@ const estFormationOfficier = (certificat) => {
 };
 
 const showFormationsSection = computed(() => form.grade_actuel !== null && form.grade_actuel !== '');
-
 const filteredCertificats = computed(() => {
     if (!form.grade_actuel) return [];
     const gradeInfo = props.grades.find(g => g.nom_grade === form.grade_actuel);
@@ -522,9 +556,6 @@ const onCertificatChange = (certifId) => {
         if (!form.certificats[certifId].date_obtention) {
             dateErrors.value[certifId] = true;
         }
-        if (!form.certificats[certifId].document && !form.certificats[certifId].document_existant) {
-            docErrors.value[certifId] = true;
-        }
     }
 };
 
@@ -532,26 +563,13 @@ const onFileSelect = (certifId, event) => {
     const file = event.files[0];
     if (file) {
         if (file.size > 5 * 1024 * 1024) {
-            toast.add({
-                severity: 'error',
-                summary: 'Erreur',
-                detail: 'Le fichier est trop volumineux. Maximum 5MB.',
-                life: 3000
-            });
+            toast.add({ severity: 'error', summary: 'Erreur', detail: 'Le fichier est trop volumineux. Maximum 5MB.', life: 3000 });
             return;
         }
-
-        // Remplacer le document existant par le nouveau
         form.certificats[certifId].document = file;
-        form.certificats[certifId].document_existant = null; // On retire l'ancien
+        form.certificats[certifId].document_existant = null;
         docErrors.value[certifId] = false;
-
-        toast.add({
-            severity: 'success',
-            summary: 'Fichier ajouté',
-            detail: `"${file.name}" sélectionné`,
-            life: 2000
-        });
+        toast.add({ severity: 'success', summary: 'Fichier ajouté', detail: `"${file.name}" sélectionné`, life: 2000 });
     }
 };
 
@@ -575,33 +593,24 @@ const formatFileSize = (bytes) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const validateDatesAndDocs = () => {
+const validateDates = () => {
     let isValid = true;
     dateErrors.value = {};
-    docErrors.value = {};
-
     Object.keys(form.certificats).forEach(certifId => {
-        if (form.certificats[certifId].obtenu) {
-            if (!form.certificats[certifId].date_obtention) {
-                dateErrors.value[certifId] = true;
-                isValid = false;
-            }
-            if (!form.certificats[certifId].document && !form.certificats[certifId].document_existant) {
-                docErrors.value[certifId] = true;
-                isValid = false;
-            }
+        if (form.certificats[certifId].obtenu && !form.certificats[certifId].date_obtention) {
+            dateErrors.value[certifId] = true;
+            isValid = false;
         }
     });
     return isValid;
 };
 
-// SOUMISSION
 const submitForm = () => {
-    if (!validateDatesAndDocs()) {
+    if (!validateDates()) {
         toast.add({
             severity: 'error',
             summary: 'Erreur',
-            detail: 'Veuillez renseigner les dates d\'obtention et les documents pour les certificats cochés',
+            detail: 'Veuillez renseigner les dates d\'obtention pour les certificats cochés',
             life: 5000
         });
         return;
@@ -612,11 +621,11 @@ const submitForm = () => {
 
     const formData = new FormData();
 
-    // Champs texte
     const textFields = [
         'matricule', 'nom', 'prenom', 'grade_actuel', 'specialite',
         'position_actuelle', 'fonction_passee', 'fonction_actuelle',
-        'telephone', 'statut'
+        'telephone', 'statut',
+        'sexe', 'groupe_sanguin', 'personne_a_contacter', 'telephone_personne_contacter'
     ];
 
     textFields.forEach(field => {
@@ -625,7 +634,6 @@ const submitForm = () => {
         }
     });
 
-    // Dates
     const dateFields = ['date_naissance', 'date_entree_service', 'date_derniere_promotion'];
     dateFields.forEach(field => {
         if (form[field]) {
@@ -633,56 +641,40 @@ const submitForm = () => {
         }
     });
 
-    // Booléens
     formData.append('a_permis_conduire', form.a_permis_conduire ? '1' : '0');
     formData.append('a_fait_justice', form.a_fait_justice ? '1' : '0');
     formData.append('a_fait_discipline', form.a_fait_discipline ? '1' : '0');
 
-    // Certificats
     Object.keys(form.certificats).forEach(certifId => {
         const certData = form.certificats[certifId];
         formData.append(`certificats[${certifId}][obtenu]`, certData.obtenu ? '1' : '0');
 
         if (certData.obtenu) {
             if (certData.date_obtention) {
-                formData.append(`certificats[${certifId}][date_obtention]`,
-                    formatDateForServer(certData.date_obtention));
+                formData.append(`certificats[${certifId}][date_obtention]`, formatDateForServer(certData.date_obtention));
             }
-            // Si un nouveau fichier est uploadé, on l'envoie
             if (certData.document) {
                 formData.append(`certificats[${certifId}][document]`, certData.document);
             }
-            // Si on garde l'ancien document, on envoie son ID
             if (!certData.document && certData.document_existant) {
                 formData.append(`certificats[${certifId}][document_id]`, certData.document_existant.id);
             }
         }
     });
 
-    // Méthode PUT avec _method
     formData.append('_method', 'PUT');
 
     router.post(route('militaires.update', form.id), formData, {
         forceFormData: true,
         onSuccess: () => {
             saving.value = false;
-            toast.add({
-                severity: 'success',
-                summary: 'Succès',
-                detail: 'Militaire mis à jour avec succès',
-                life: 3000
-            });
+            toast.add({ severity: 'success', summary: 'Succès', detail: 'Militaire mis à jour avec succès', life: 3000 });
             router.visit(route('militaires.show', form.id));
         },
         onError: (err) => {
             saving.value = false;
             errors.value = err;
-            toast.add({
-                severity: 'error',
-                summary: 'Erreur',
-                detail: 'Veuillez corriger les erreurs du formulaire',
-                life: 5000
-            });
+            toast.add({ severity: 'error', summary: 'Erreur', detail: 'Veuillez corriger les erreurs du formulaire', life: 5000 });
             const firstError = document.querySelector('.p-invalid');
             if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
@@ -698,9 +690,7 @@ const formatDateForServer = (date) => {
     return `${year}-${month}-${day}`;
 };
 
-const cancel = () => {
-    router.visit(route('militaires.index'));
-};
+const cancel = () => { router.visit(route('militaires.index')); };
 
 onMounted(() => {
     Object.keys(form.certificats).forEach(certifId => {
@@ -711,9 +701,6 @@ onMounted(() => {
         } else {
             if (!form.certificats[certifId].date_obtention) {
                 dateErrors.value[certifId] = true;
-            }
-            if (!form.certificats[certifId].document && !form.certificats[certifId].document_existant) {
-                docErrors.value[certifId] = true;
             }
         }
     });

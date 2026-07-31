@@ -27,6 +27,10 @@ class Militaire extends Model
         'fonction_passee',
         'fonction_actuelle',
         'telephone',
+        'sexe',
+        'groupe_sanguin',
+        'personne_a_contacter',
+        'telephone_personne_contacter',
         'statut',
         'a_permis_conduire',
         'a_fait_justice',
@@ -53,14 +57,14 @@ class Militaire extends Model
 
     /**
      * Relation Many-to-Many avec Certificat
-     * ✅ Table pivot : militaire_certificat (correspond à la migration)
+     * Table pivot : certificat_militaire
      */
-   public function certificats(): BelongsToMany
-{
-    return $this->belongsToMany(Certificat::class, 'certificat_militaire')
-                ->withPivot('id', 'date_obtention')
-                ->withTimestamps();
-}
+    public function certificats(): BelongsToMany
+    {
+        return $this->belongsToMany(Certificat::class, 'certificat_militaire')
+                    ->withPivot('id', 'date_obtention')
+                    ->withTimestamps();
+    }
 
     public function contrats(): HasMany
     {

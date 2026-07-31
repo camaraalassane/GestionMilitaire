@@ -844,179 +844,159 @@ class MilitaireController extends Controller
      * Vérifie les formations - SUPPRIME TOUJOURS LES ALERTES AVANT D'EN CRÉER
      */
     private function verifierFormations(Militaire $militaire): void
-    {
-        if ($militaire->statut !== 'actif') return;
+{
+    if ($militaire->statut !== 'actif') return;
 
-        $grade = $militaire->grade_actuel;
-        $age = $militaire->age;
-        $anciennete = $militaire->anciennete;
-        $ancienneteGrade = $militaire->ancienneteGrade;
-        $certificatsObtenus = $militaire->certificats->pluck('niveau_certificat')->toArray();
-        $conditionsBase = !$militaire->a_fait_justice && !$militaire->a_fait_discipline;
-        $dateProposition = $this->getDateProposition();
+    $grade = $militaire->grade_actuel;
+    $age = $militaire->age;
+    $anciennete = $militaire->anciennete;
+    $ancienneteGrade = $militaire->ancienneteGrade;
+    $certificatsObtenus = $militaire->certificats->pluck('niveau_certificat')->toArray();
+    $conditionsBase = !$militaire->a_fait_justice && !$militaire->a_fait_discipline;
+    $dateProposition = $this->getDateProposition();
 
-        // =========================================================
-        // 1. APLI - SUPPRIMER TOUJOURS AVANT
-        // =========================================================
-        Alerte::where('militaire_id', $militaire->id)
-            ->where('type_alerte', 'formation')
-            ->where('message', 'LIKE', '%APLI%')
-            ->delete();
+    // 1. APLI
+    Alerte::where('militaire_id', $militaire->id)
+        ->where('type_alerte', 'formation')
+        ->where('message', 'LIKE', "%Cour d'Application%")
+        ->delete();
 
-        if (!in_array('APLI', $certificatsObtenus)) {
-            if (in_array($grade, ['Sous-lieutenant', 'Lieutenant', 'Capitaine']) && !in_array('CFCU', $certificatsObtenus) && $age <= 50) {
-                $this->creerAlerteFormation($militaire, 'APLI', "Cour d'Application", $dateProposition, null);
-            }
+    if (!in_array('APLI', $certificatsObtenus)) {
+        if (in_array($grade, ['Sous-lieutenant', 'Lieutenant', 'Capitaine']) && !in_array('CFCU', $certificatsObtenus) && $age <= 50) {
+            $this->creerAlerteFormation($militaire, 'APLI', "Cour d'Application", $dateProposition, null);
         }
+    }
 
-        // =========================================================
-        // 2. CFCU - SUPPRIMER TOUJOURS AVANT
-        // =========================================================
-        Alerte::where('militaire_id', $militaire->id)
-            ->where('type_alerte', 'formation')
-            ->where('message', 'LIKE', '%CFCU%')
-            ->delete();
+    // 2. CFCU
+    Alerte::where('militaire_id', $militaire->id)
+        ->where('type_alerte', 'formation')
+        ->where('message', 'LIKE', "%Cour des Futurs Commandants d'Unité%")
+        ->delete();
 
-        if (!in_array('CFCU', $certificatsObtenus)) {
-            if (in_array($grade, ['Lieutenant', 'Capitaine']) && !in_array('CFCU', $certificatsObtenus)) {
-                if ($grade == 'Capitaine' || in_array('APLI', $certificatsObtenus)) {
-                    $this->creerAlerteFormation($militaire, 'CFCU', "Cour des Futurs Commandants d'Unité", $dateProposition, null);
-                }
-            }
-        }
-
-        // =========================================================
-        // 3. CAT1 - SUPPRIMER TOUJOURS AVANT
-        // =========================================================
-        Alerte::where('militaire_id', $militaire->id)
-            ->where('type_alerte', 'formation')
-            ->where('message', 'LIKE', '%CAT1%')
-            ->delete();
-
-        if (!in_array('CAT1', $certificatsObtenus)) {
-            if (in_array($grade, ['Soldat 2', 'Soldat 1']) && !in_array('CAT1', $certificatsObtenus) && $ancienneteGrade >= 5 && $conditionsBase) {
-                $dateConditions = Carbon::parse($militaire->date_entree_service)->addYears(5);
-                $this->creerAlerteFormation($militaire, 'CAT1', "Certificat d'Aptitude Technique Niveau 1", $dateProposition, $dateConditions);
-            }
-        }
-
-        // =========================================================
-        // 4. CAT2 - SUPPRIMER TOUJOURS AVANT
-        // =========================================================
-        Alerte::where('militaire_id', $militaire->id)
-            ->where('type_alerte', 'formation')
-            ->where('message', 'LIKE', '%CAT2%')
-            ->delete();
-
-        if (!in_array('CAT2', $certificatsObtenus)) {
-            if ($grade == 'Caporal' && $age < 47 && !in_array('CAT2', $certificatsObtenus) && $ancienneteGrade >= 3 && $conditionsBase && in_array('CAT1', $certificatsObtenus)) {
-                $certifCAT1 = $militaire->certificats->where('niveau_certificat', 'CAT1')->first();
-                $dateConditions = null;
-                if ($certifCAT1 && $certifCAT1->pivot->date_obtention) {
-                    $dateConditions = Carbon::parse($certifCAT1->pivot->date_obtention)->addYears(3);
-                }
-                $this->creerAlerteFormation($militaire, 'CAT2', "Certificat d'Aptitude Technique Niveau 2", $dateProposition, $dateConditions);
-            }
-        }
-
-        // =========================================================
-        // 5. CIA - SUPPRIMER TOUJOURS AVANT
-        // =========================================================
-        Alerte::where('militaire_id', $militaire->id)
-            ->where('type_alerte', 'formation')
-            ->where('message', 'LIKE', '%CIA%')
-            ->delete();
-
-        if (!in_array('CIA', $certificatsObtenus)) {
-            if (in_array($grade, ['Sergent', 'Sergent-Chef', 'Adjudant', 'Adjudant-Chef']) && !in_array('CIA', $certificatsObtenus) && $conditionsBase && $militaire->a_permis_conduire) {
-                $this->creerAlerteFormation($militaire, 'CIA', "Certificat d'Instruction d'Armes", $dateProposition, null);
-            }
-        }
-
-        // =========================================================
-        // 6. BA1 - SUPPRIMER TOUJOURS AVANT
-        // =========================================================
-        Alerte::where('militaire_id', $militaire->id)
-            ->where('type_alerte', 'formation')
-            ->where('message', 'LIKE', '%BA1%')
-            ->delete();
-
-        if (!in_array('BA1', $certificatsObtenus)) {
-            if (in_array($grade, ['Sergent-Chef', 'Adjudant', 'Adjudant-Chef']) && !in_array('BA1', $certificatsObtenus) && in_array('CIA', $certificatsObtenus) && $conditionsBase && $anciennete >= 8) {
-                $certifCIA = $militaire->certificats->where('niveau_certificat', 'CIA')->first();
-                $dateConditions = null;
-                if ($certifCIA && $certifCIA->pivot->date_obtention) {
-                    $dateConditions = Carbon::parse($certifCIA->pivot->date_obtention)->addYears(3);
-                }
-                $this->creerAlerteFormation($militaire, 'BA1', "Brevet d'Aptitude Niveau 1", $dateProposition, $dateConditions);
-            }
-        }
-
-        // =========================================================
-        // 7. BA2 - SUPPRIMER TOUJOURS AVANT
-        // =========================================================
-        Alerte::where('militaire_id', $militaire->id)
-            ->where('type_alerte', 'formation')
-            ->where('message', 'LIKE', '%BA2%')
-            ->delete();
-
-        if (!in_array('BA2', $certificatsObtenus)) {
-            if (in_array($grade, ['Adjudant', 'Adjudant-Chef']) && !in_array('BA2', $certificatsObtenus) && in_array('BA1', $certificatsObtenus) && $conditionsBase) {
-                $certifBA1 = $militaire->certificats->where('niveau_certificat', 'BA1')->first();
-                $dateConditions = null;
-                if ($certifBA1 && $certifBA1->pivot->date_obtention) {
-                    $dateConditions = Carbon::parse($certifBA1->pivot->date_obtention)->addYears(3);
-                }
-                $this->creerAlerteFormation($militaire, 'BA2', "Brevet d'Aptitude Niveau 2", $dateProposition, $dateConditions);
-            }
-        }
-
-        // =========================================================
-        // 8. CEM - SUPPRIMER TOUJOURS AVANT
-        // =========================================================
-        Alerte::where('militaire_id', $militaire->id)
-            ->where('type_alerte', 'formation')
-            ->where('message', 'LIKE', '%CEM%')
-            ->delete();
-
-        if (!in_array('CEM', $certificatsObtenus)) {
-            if (in_array($grade, ['Capitaine', 'Commandant']) && !in_array('CEM', $certificatsObtenus)) {
-                if (($grade == 'Capitaine' && $ancienneteGrade >= 3) || $grade == 'Commandant') {
-                    if ($age <= 45) {
-                        $this->creerAlerteFormation($militaire, 'CEM', "Cour d'État-Major", $dateProposition, null);
-                    }
-                }
-            }
-        }
-
-        // =========================================================
-        // 9. CERT_EM - SUPPRIMER TOUJOURS AVANT
-        // =========================================================
-        Alerte::where('militaire_id', $militaire->id)
-            ->where('type_alerte', 'formation')
-            ->where('message', 'LIKE', '%CERT_EM%')
-            ->delete();
-
-        if (!in_array('CERT_EM', $certificatsObtenus)) {
-            if ($grade == 'Commandant' && $age > 45 && !in_array('CERT_EM', $certificatsObtenus)) {
-                $this->creerAlerteFormation($militaire, 'CERT_EM', "Certificat d'État-Major", $dateProposition, null);
-            }
-        }
-
-        // =========================================================
-        // 10. ECOLE_GUERRE - SUPPRIMER TOUJOURS AVANT
-        // =========================================================
-        Alerte::where('militaire_id', $militaire->id)
-            ->where('type_alerte', 'formation')
-            ->where('message', 'LIKE', '%ECOLE_GUERRE%')
-            ->delete();
-
-        if (!in_array('ECOLE_GUERRE', $certificatsObtenus)) {
-            if (in_array($grade, ['Lieutenant-colonel', 'Colonel', 'Colonel-Major']) && !in_array('ECOLE_GUERRE', $certificatsObtenus) && $ancienneteGrade >= 2 && $age <= 53) {
-                $this->creerAlerteFormation($militaire, 'ECOLE_GUERRE', "École de Guerre", $dateProposition, null);
+    if (!in_array('CFCU', $certificatsObtenus)) {
+        if (in_array($grade, ['Lieutenant', 'Capitaine'])) {
+            if ($grade == 'Capitaine' || in_array('APLI', $certificatsObtenus)) {
+                $this->creerAlerteFormation($militaire, 'CFCU', "Cour des Futurs Commandants d'Unité", $dateProposition, null);
             }
         }
     }
+
+    // 3. CAT1
+    Alerte::where('militaire_id', $militaire->id)
+        ->where('type_alerte', 'formation')
+        ->where('message', 'LIKE', "%Certificat d'Aptitude Technique Niveau 1%")
+        ->delete();
+
+    if (!in_array('CAT1', $certificatsObtenus)) {
+        if (in_array($grade, ['Soldat 2', 'Soldat 1']) && $ancienneteGrade >= 5 && $conditionsBase) {
+            $dateConditions = Carbon::parse($militaire->date_entree_service)->addYears(5);
+            $this->creerAlerteFormation($militaire, 'CAT1', "Certificat d'Aptitude Technique Niveau 1", $dateProposition, $dateConditions);
+        }
+    }
+
+    // 4. CAT2
+    Alerte::where('militaire_id', $militaire->id)
+        ->where('type_alerte', 'formation')
+        ->where('message', 'LIKE', "%Certificat d'Aptitude Technique Niveau 2%")
+        ->delete();
+
+    if (!in_array('CAT2', $certificatsObtenus)) {
+        if ($grade == 'Caporal' && $age < 47 && $ancienneteGrade >= 3 && $conditionsBase && in_array('CAT1', $certificatsObtenus)) {
+            $certifCAT1 = $militaire->certificats->where('niveau_certificat', 'CAT1')->first();
+            $dateConditions = null;
+            if ($certifCAT1 && $certifCAT1->pivot->date_obtention) {
+                $dateConditions = Carbon::parse($certifCAT1->pivot->date_obtention)->addYears(3);
+            }
+            $this->creerAlerteFormation($militaire, 'CAT2', "Certificat d'Aptitude Technique Niveau 2", $dateProposition, $dateConditions);
+        }
+    }
+
+    // 5. CIA
+    Alerte::where('militaire_id', $militaire->id)
+        ->where('type_alerte', 'formation')
+        ->where('message', 'LIKE', "%Certificat d'Instruction d'Armes%")
+        ->delete();
+
+    if (!in_array('CIA', $certificatsObtenus)) {
+        if (in_array($grade, ['Sergent', 'Sergent-Chef', 'Adjudant', 'Adjudant-Chef']) && $conditionsBase && $militaire->a_permis_conduire) {
+            $this->creerAlerteFormation($militaire, 'CIA', "Certificat d'Instruction d'Armes", $dateProposition, null);
+        }
+    }
+
+    // 6. BA1
+    Alerte::where('militaire_id', $militaire->id)
+        ->where('type_alerte', 'formation')
+        ->where('message', 'LIKE', "%Brevet d'Aptitude Niveau 1%")
+        ->delete();
+
+    if (!in_array('BA1', $certificatsObtenus)) {
+        if (in_array($grade, ['Sergent-Chef', 'Adjudant', 'Adjudant-Chef']) && in_array('CIA', $certificatsObtenus) && $conditionsBase && $anciennete >= 8) {
+            $certifCIA = $militaire->certificats->where('niveau_certificat', 'CIA')->first();
+            $dateConditions = null;
+            if ($certifCIA && $certifCIA->pivot->date_obtention) {
+                $dateConditions = Carbon::parse($certifCIA->pivot->date_obtention)->addYears(3);
+            }
+            $this->creerAlerteFormation($militaire, 'BA1', "Brevet d'Aptitude Niveau 1", $dateProposition, $dateConditions);
+        }
+    }
+
+    // 7. BA2
+    Alerte::where('militaire_id', $militaire->id)
+        ->where('type_alerte', 'formation')
+        ->where('message', 'LIKE', "%Brevet d'Aptitude Niveau 2%")
+        ->delete();
+
+    if (!in_array('BA2', $certificatsObtenus)) {
+        if (in_array($grade, ['Adjudant', 'Adjudant-Chef']) && in_array('BA1', $certificatsObtenus) && $conditionsBase) {
+            $certifBA1 = $militaire->certificats->where('niveau_certificat', 'BA1')->first();
+            $dateConditions = null;
+            if ($certifBA1 && $certifBA1->pivot->date_obtention) {
+                $dateConditions = Carbon::parse($certifBA1->pivot->date_obtention)->addYears(3);
+            }
+            $this->creerAlerteFormation($militaire, 'BA2', "Brevet d'Aptitude Niveau 2", $dateProposition, $dateConditions);
+        }
+    }
+
+    // 8. CEM  (attention : distinct de "Certificat d'État-Major" ci-dessous)
+    Alerte::where('militaire_id', $militaire->id)
+        ->where('type_alerte', 'formation')
+        ->where('message', 'LIKE', "%Cour d'État-Major%")
+        ->delete();
+
+    if (!in_array('CEM', $certificatsObtenus)) {
+        if (in_array($grade, ['Capitaine', 'Commandant'])) {
+            if (($grade == 'Capitaine' && $ancienneteGrade >= 3) || $grade == 'Commandant') {
+                if ($age <= 45) {
+                    $this->creerAlerteFormation($militaire, 'CEM', "Cour d'État-Major", $dateProposition, null);
+                }
+            }
+        }
+    }
+
+    // 9. CERT_EM
+    Alerte::where('militaire_id', $militaire->id)
+        ->where('type_alerte', 'formation')
+        ->where('message', 'LIKE', "%Certificat d'État-Major%")
+        ->delete();
+
+    if (!in_array('CERT_EM', $certificatsObtenus)) {
+        if ($grade == 'Commandant' && $age > 45) {
+            $this->creerAlerteFormation($militaire, 'CERT_EM', "Certificat d'État-Major", $dateProposition, null);
+        }
+    }
+
+    // 10. ECOLE_GUERRE
+    Alerte::where('militaire_id', $militaire->id)
+        ->where('type_alerte', 'formation')
+        ->where('message', 'LIKE', "%École de Guerre%")
+        ->delete();
+
+    if (!in_array('ECOLE_GUERRE', $certificatsObtenus)) {
+        if (in_array($grade, ['Lieutenant-colonel', 'Colonel', 'Colonel-Major']) && $ancienneteGrade >= 2 && $age <= 53) {
+            $this->creerAlerteFormation($militaire, 'ECOLE_GUERRE', "École de Guerre", $dateProposition, null);
+        }
+    }
+}
 
     private function creerAlertePromotion(Militaire $militaire, string $gradeCible, $dateProposition, $dateAnciennete): void
     {

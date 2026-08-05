@@ -9,7 +9,7 @@ use App\Http\Controllers\AlerteController;
 use App\Http\Controllers\EligibiliteController;
 use App\Http\Controllers\ContratController;
 use App\Http\Controllers\CertificatDocumentController;
-use App\Http\Controllers\MilitairesImportController; // ✅ NOUVEAU
+use App\Http\Controllers\MilitairesImportController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -70,31 +70,23 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/certificats/{certificat}', [CertificatController::class, 'update'])->name('certificats.update');
     Route::delete('/certificats/{certificat}', [CertificatController::class, 'destroy'])->name('certificats.destroy');
 
-    // Téléchargement des documents des certificats
     Route::get('/certificats/document/{id}/download', [CertificatDocumentController::class, 'download'])
         ->name('certificats.document.download');
 });
 
 // Routes pour les militaires (CRUD et import/export)
 Route::middleware(['auth'])->group(function () {
-    // ⚠️ ATTENTION : Les routes spécifiques DOIVENT être AVANT les routes avec paramètres {militaire}
-
     // Routes d'import/export (spécifiques)
     Route::get('/militaires/export', [MilitaireController::class, 'export'])->name('militaires.export');
     Route::get('/militaires/export/template', [MilitaireController::class, 'exportTemplate'])->name('militaires.export.template');
 
-    // Route pour afficher le formulaire d'import
-    Route::get('/militaires/import', [MilitaireController::class, 'importForm'])->name('militaires.import');
+    // ✅ Route pour afficher le formulaire d'import
+    Route::get('/militaires/import/form', [MilitairesImportController::class, 'showForm'])->name('militaires.import');
 
-    // ✅ NOUVELLE ROUTE : Traitement de l'import avec gestion des doublons
-    Route::post('/militaires/import/process', [MilitairesImportController::class, 'process'])
-        ->name('militaires.import.process');
+    // ✅ Route pour traiter l'import
+    Route::post('/militaires/import/process', [MilitairesImportController::class, 'process'])->name('militaires.import.process');
 
-    // Route alternative pour compatibilité (si elle existe encore)
-    Route::post('/militaires/import', [MilitairesImportController::class, 'process'])
-        ->name('militaires.import.legacy');
-
-    // Routes CRUD standard (avec paramètre {militaire} - DOIVENT être en dernier)
+    // Routes CRUD standard
     Route::get('/militaires', [MilitaireController::class, 'index'])->name('militaires.index');
     Route::get('/militaires/create', [MilitaireController::class, 'create'])->name('militaires.create');
     Route::post('/militaires', [MilitaireController::class, 'store'])->name('militaires.store');

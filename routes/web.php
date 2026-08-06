@@ -86,6 +86,11 @@ Route::middleware(['auth'])->group(function () {
     // ✅ Route pour traiter l'import
     Route::post('/militaires/import/process', [MilitairesImportController::class, 'process'])->name('militaires.import.process');
 
+    // ✅ Routes pour télécharger les modèles d'import
+    Route::get('/militaires/import/template/xlsx', [MilitairesImportController::class, 'downloadTemplateXlsx'])->name('militaires.import.template.xlsx');
+    Route::get('/militaires/import/template/csv', [MilitairesImportController::class, 'downloadTemplateCsv'])->name('militaires.import.template.csv');
+
+
     // Routes CRUD standard
     Route::get('/militaires', [MilitaireController::class, 'index'])->name('militaires.index');
     Route::get('/militaires/create', [MilitaireController::class, 'create'])->name('militaires.create');

@@ -3,13 +3,13 @@
 namespace App\Imports;
 
 use App\Models\Militaire;
-use Maatwebsite\Excel\Concerns\ToModel;
+use App\Models\Certificat;
+use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
 use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
 use Maatwebsite\Excel\Concerns\SkipsOnFailure;
 use Maatwebsite\Excel\Concerns\SkipsFailures;
-use Maatwebsite\Excel\Concerns\ToCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
@@ -17,6 +17,29 @@ use Carbon\Carbon;
 class MilitairesImport implements ToCollection, WithHeadingRow, WithValidation, SkipsEmptyRows
 {
     use SkipsFailures;
+
+    /**
+     * Mapping des colonnes Excel vers les noms de certificats en base
+     */
+    protected const CERTIFICATE_MAPPING = [
+        // Certificats sous-officiers
+        'cat1'  => "Certificat d'Aptitude Technique Niveau 1",
+        'cat2'  => "Certificat d'Aptitude Technique Niveau 2",
+        'cia'   => "Certificat d'Instruction d'Armes",
+        'ba1'   => "Brevet d'Aptitude Niveau 1",
+        'ba2'   => "Brevet d'Aptitude Niveau 2",
+        'bmp1'  => "Brevet Militaire Professionnel niveau 1",
+        'bmp2'  => "Brevet Militaire Professionnel niveau 2",
+        'bs'    => "Brevet de Spécialité",
+        'ct2'   => "Certificat Technique niveau 2",
+        // Formations officiers
+        'apli'  => "Cour d'Application",
+        'cfcu'  => "Cour des Capitaines / CFCU / CPO",
+        'cpo'   => "Cour des Capitaines / CFCU / CPO",
+        'cem'   => "Cour d'état-major",
+        'certificat_etat_major' => "Certificat d'état-major",
+        'ecole_guerre' => "École de guerre / Brevet Supérieur de Second Degré",
+    ];
 
     protected string $duplicateAction;
     protected array $summary = [
@@ -26,6 +49,7 @@ class MilitairesImport implements ToCollection, WithHeadingRow, WithValidation, 
         'errors' => 0
     ];
     protected array $duplicates = [];
+    protected array $errorDetails = [];
 
     public function __construct(string $duplicateAction = 'ignore')
     {
@@ -34,92 +58,310 @@ class MilitairesImport implements ToCollection, WithHeadingRow, WithValidation, 
 
     public function collection(Collection $rows)
     {
-        foreach ($rows as $row) {
+        foreach ($rows as $index => $row) {
             try {
-                // Vérifier si le matricule existe déjà
                 $existing = Militaire::where('matricule', $row['matricule'])->first();
 
                 if ($existing) {
                     if ($this->duplicateAction === 'update') {
-                        $this->updateMilitaire($existing, $row);
+                        $this->updateMilitaire($existing, $row->toArray());
                         $this->summary['updated']++;
                     } else {
                         $this->summary['skipped']++;
                         $this->duplicates[] = [
                             'matricule' => $row['matricule'],
                             'nom' => $row['nom'] ?? '',
-                            'prenom' => $row['prenom'] ?? ''
+                            'prenom' => $row['prenom'] ?? '',
+                            'action' => 'Ignoré'
                         ];
                     }
                     continue;
                 }
 
-                $this->createMilitaire($row);
+                $this->createMilitaire($row->toArray());
                 $this->summary['created']++;
 
             } catch (\Exception $e) {
                 $this->summary['errors']++;
-                Log::error('Erreur import: ' . $e->getMessage(), ['row' => $row]);
+                $this->errorDetails[] = [
+                    'row' => $index + 2, // +2 because of heading row and 0-index
+                    'matricule' => $row['matricule'] ?? 'N/A',
+                    'message' => $e->getMessage()
+                ];
+                Log::error('Erreur import ligne ' . ($index + 2) . ': ' . $e->getMessage(), [
+                    'row' => $row->toArray()
+                ]);
             }
         }
+    }
+
+    /**
+     * Parse une valeur de date, supportant :
+     * - Les nombres sériels Excel (ex: 45292)
+     * - Le format français JJ/MM/AAAA
+     * - Le format standard AAAA-MM-JJ
+     * - Le format JJ-MM-AAAA
+     */
+    protected function parseDate($value): ?Carbon
+    {
+        if (empty($value) || $value === '' || $value === null) {
+            return null;
+        }
+
+        // Si c'est un nombre (date sérielle Excel)
+        if (is_numeric($value)) {
+            try {
+                // Excel utilise le 1er janvier 1900 comme date de base
+                // Mais il y a un bug Excel qui compte le 29/02/1900 (qui n'existe pas)
+                $excelBaseDate = Carbon::create(1899, 12, 30);
+                return $excelBaseDate->addDays((int) $value);
+            } catch (\Exception $e) {
+                Log::warning('Date sérielle Excel non reconnue', ['value' => $value]);
+                return null;
+            }
+        }
+
+        $value = trim((string) $value);
+
+        // Format français: JJ/MM/AAAA
+        try {
+            if (preg_match('#^\d{1,2}/\d{1,2}/\d{4}$#', $value)) {
+                return Carbon::createFromFormat('d/m/Y', $value)->startOfDay();
+            }
+        } catch (\Exception $e) {
+            // Continuer avec les autres formats
+        }
+
+        // Format JJ-MM-AAAA
+        try {
+            if (preg_match('#^\d{1,2}-\d{1,2}-\d{4}$#', $value)) {
+                return Carbon::createFromFormat('d-m-Y', $value)->startOfDay();
+            }
+        } catch (\Exception $e) {
+            // Continuer
+        }
+
+        // Format standard: AAAA-MM-JJ
+        try {
+            return Carbon::parse($value)->startOfDay();
+        } catch (\Exception $e) {
+            Log::warning('Date non reconnue', ['value' => $value]);
+            return null;
+        }
+    }
+
+    /**
+     * Normalise la valeur du sexe
+     */
+    protected function parseSexe(?string $value): ?string
+    {
+        if (empty($value)) return null;
+
+        $value = mb_strtolower(trim($value));
+
+        if (in_array($value, ['m', 'masculin', 'homme', 'h', 'male'])) {
+            return 'Masculin';
+        }
+        if (in_array($value, ['f', 'féminin', 'feminin', 'femme', 'female'])) {
+            return 'Féminin';
+        }
+
+        return null;
+    }
+
+    /**
+     * Normalise la valeur du statut
+     */
+    protected function parseStatut(?string $value): string
+    {
+        if (empty($value)) return 'actif';
+
+        $value = mb_strtolower(trim($value));
+
+        $statuts = ['actif', 'retraité', 'déserteur', 'décédé', 'formation', 'stage'];
+
+        // Correspondance exacte
+        if (in_array($value, $statuts)) {
+            return $value;
+        }
+
+        // Correspondance sans accents
+        $mapping = [
+            'retraite' => 'retraité',
+            'deserteur' => 'déserteur',
+            'decede' => 'décédé',
+        ];
+
+        return $mapping[$value] ?? 'actif';
+    }
+
+    /**
+     * Parse une valeur booléenne (0/1, oui/non, vrai/faux, true/false)
+     */
+    protected function parseBool($value): bool
+    {
+        if (is_bool($value)) return $value;
+        if (is_numeric($value)) return (bool) (int) $value;
+
+        $value = mb_strtolower(trim((string) $value));
+
+        return in_array($value, ['1', 'oui', 'vrai', 'true', 'yes', 'o', 'v']);
     }
 
     protected function createMilitaire(array $row): void
     {
         $militaire = new Militaire();
-        $militaire->matricule = $row['matricule'];
-        $militaire->nom = $row['nom'] ?? '';
-        $militaire->prenom = $row['prenom'] ?? '';
-        $militaire->date_naissance = isset($row['date_naissance']) ? Carbon::parse($row['date_naissance']) : null;
-        $militaire->date_entree_service = isset($row['date_entree_service']) ? Carbon::parse($row['date_entree_service']) : null;
-        $militaire->grade_actuel = $row['grade_actuel'] ?? null;
-        $militaire->date_derniere_promotion = isset($row['date_derniere_promotion']) ? Carbon::parse($row['date_derniere_promotion']) : null;
-        $militaire->specialite = $row['specialite'] ?? null;
-        $militaire->statut = $row['statut'] ?? 'actif';
-        $militaire->telephone = $row['telephone'] ?? null;
-        $militaire->sexe = $row['sexe'] ?? null;
-        $militaire->groupe_sanguin = $row['groupe_sanguin'] ?? null;
-        $militaire->personne_a_contacter = $row['personne_a_contacter'] ?? null;
-        $militaire->telephone_personne_contacter = $row['telephone_personne_contacter'] ?? null;
-        $militaire->position_actuelle = $row['position_actuelle'] ?? null;
-        $militaire->fonction_passee = $row['fonction_passee'] ?? null;
-        $militaire->fonction_actuelle = $row['fonction_actuelle'] ?? null;
-        $militaire->a_permis_conduire = isset($row['a_permis_conduire']) ? (bool)$row['a_permis_conduire'] : false;
-        $militaire->a_fait_justice = isset($row['a_fait_justice']) ? (bool)$row['a_fait_justice'] : false;
-        $militaire->a_fait_discipline = isset($row['a_fait_discipline']) ? (bool)$row['a_fait_discipline'] : false;
+        $militaire->matricule = trim($row['matricule']);
+        $militaire->nom = trim($row['nom'] ?? '');
+        $militaire->prenom = trim($row['prenom'] ?? '');
+        $militaire->date_naissance = $this->parseDate($row['date_naissance'] ?? null);
+        $militaire->date_entree_service = $this->parseDate($row['date_entree_service'] ?? null);
+        $militaire->grade_actuel = trim($row['grade_actuel'] ?? '');
+        $militaire->date_derniere_promotion = $this->parseDate($row['date_derniere_promotion'] ?? null);
+        $militaire->specialite = !empty($row['specialite']) ? trim($row['specialite']) : null;
+        $militaire->statut = $this->parseStatut($row['statut'] ?? null);
+        $militaire->telephone = !empty($row['telephone']) ? trim((string)$row['telephone']) : null;
+        $militaire->sexe = $this->parseSexe($row['sexe'] ?? null);
+        $militaire->groupe_sanguin = !empty($row['groupe_sanguin']) ? trim($row['groupe_sanguin']) : null;
+        $militaire->personne_a_contacter = !empty($row['personne_a_contacter']) ? trim($row['personne_a_contacter']) : null;
+        $militaire->telephone_personne_contacter = !empty($row['telephone_personne_contacter']) ? trim((string)$row['telephone_personne_contacter']) : null;
+        $militaire->position_actuelle = !empty($row['position_actuelle']) ? trim($row['position_actuelle']) : null;
+        $militaire->fonction_passee = !empty($row['fonction_passee']) ? trim($row['fonction_passee']) : null;
+        $militaire->fonction_actuelle = !empty($row['fonction_actuelle']) ? trim($row['fonction_actuelle']) : null;
+        $militaire->a_permis_conduire = $this->parseBool($row['a_permis_conduire'] ?? false);
+        $militaire->a_fait_justice = $this->parseBool($row['a_fait_justice'] ?? false);
+        $militaire->a_fait_discipline = $this->parseBool($row['a_fait_discipline'] ?? false);
         $militaire->save();
+
+        // Attacher les certificats
+        $this->attachCertificates($militaire, $row);
     }
 
     protected function updateMilitaire(Militaire $militaire, array $row): void
     {
-        $militaire->nom = $row['nom'] ?? $militaire->nom;
-        $militaire->prenom = $row['prenom'] ?? $militaire->prenom;
-        $militaire->date_naissance = isset($row['date_naissance']) ? Carbon::parse($row['date_naissance']) : $militaire->date_naissance;
-        $militaire->date_entree_service = isset($row['date_entree_service']) ? Carbon::parse($row['date_entree_service']) : $militaire->date_entree_service;
-        $militaire->grade_actuel = $row['grade_actuel'] ?? $militaire->grade_actuel;
-        $militaire->date_derniere_promotion = isset($row['date_derniere_promotion']) ? Carbon::parse($row['date_derniere_promotion']) : $militaire->date_derniere_promotion;
-        $militaire->specialite = $row['specialite'] ?? $militaire->specialite;
-        $militaire->statut = $row['statut'] ?? $militaire->statut;
-        $militaire->telephone = $row['telephone'] ?? $militaire->telephone;
-        $militaire->sexe = $row['sexe'] ?? $militaire->sexe;
-        $militaire->groupe_sanguin = $row['groupe_sanguin'] ?? $militaire->groupe_sanguin;
-        $militaire->personne_a_contacter = $row['personne_a_contacter'] ?? $militaire->personne_a_contacter;
-        $militaire->telephone_personne_contacter = $row['telephone_personne_contacter'] ?? $militaire->telephone_personne_contacter;
-        $militaire->position_actuelle = $row['position_actuelle'] ?? $militaire->position_actuelle;
-        $militaire->fonction_passee = $row['fonction_passee'] ?? $militaire->fonction_passee;
-        $militaire->fonction_actuelle = $row['fonction_actuelle'] ?? $militaire->fonction_actuelle;
-        $militaire->a_permis_conduire = isset($row['a_permis_conduire']) ? (bool)$row['a_permis_conduire'] : $militaire->a_permis_conduire;
-        $militaire->a_fait_justice = isset($row['a_fait_justice']) ? (bool)$row['a_fait_justice'] : $militaire->a_fait_justice;
-        $militaire->a_fait_discipline = isset($row['a_fait_discipline']) ? (bool)$row['a_fait_discipline'] : $militaire->a_fait_discipline;
+        if (!empty($row['nom'])) $militaire->nom = trim($row['nom']);
+        if (!empty($row['prenom'])) $militaire->prenom = trim($row['prenom']);
+
+        $dateNaissance = $this->parseDate($row['date_naissance'] ?? null);
+        if ($dateNaissance) $militaire->date_naissance = $dateNaissance;
+
+        $dateEntree = $this->parseDate($row['date_entree_service'] ?? null);
+        if ($dateEntree) $militaire->date_entree_service = $dateEntree;
+
+        if (!empty($row['grade_actuel'])) $militaire->grade_actuel = trim($row['grade_actuel']);
+
+        $datePromo = $this->parseDate($row['date_derniere_promotion'] ?? null);
+        if ($datePromo) $militaire->date_derniere_promotion = $datePromo;
+
+        if (!empty($row['specialite'])) $militaire->specialite = trim($row['specialite']);
+        if (!empty($row['statut'])) $militaire->statut = $this->parseStatut($row['statut']);
+        if (!empty($row['telephone'])) $militaire->telephone = trim((string)$row['telephone']);
+        if (!empty($row['sexe'])) $militaire->sexe = $this->parseSexe($row['sexe']);
+        if (!empty($row['groupe_sanguin'])) $militaire->groupe_sanguin = trim($row['groupe_sanguin']);
+        if (!empty($row['personne_a_contacter'])) $militaire->personne_a_contacter = trim($row['personne_a_contacter']);
+        if (!empty($row['telephone_personne_contacter'])) $militaire->telephone_personne_contacter = trim((string)$row['telephone_personne_contacter']);
+        if (!empty($row['position_actuelle'])) $militaire->position_actuelle = trim($row['position_actuelle']);
+        if (!empty($row['fonction_passee'])) $militaire->fonction_passee = trim($row['fonction_passee']);
+        if (!empty($row['fonction_actuelle'])) $militaire->fonction_actuelle = trim($row['fonction_actuelle']);
+
+        if (isset($row['a_permis_conduire'])) $militaire->a_permis_conduire = $this->parseBool($row['a_permis_conduire']);
+        if (isset($row['a_fait_justice'])) $militaire->a_fait_justice = $this->parseBool($row['a_fait_justice']);
+        if (isset($row['a_fait_discipline'])) $militaire->a_fait_discipline = $this->parseBool($row['a_fait_discipline']);
+
         $militaire->save();
+
+        // Attacher/mettre à jour les certificats
+        $this->attachCertificates($militaire, $row);
+    }
+
+    /**
+     * Attacher les certificats au militaire à partir des colonnes a_fait_xxx / date_obtention_xxx
+     */
+    protected function attachCertificates(Militaire $militaire, array $row): void
+    {
+        foreach (self::CERTIFICATE_MAPPING as $key => $nomCertificat) {
+            $colFait = 'a_fait_' . $key;
+            $colDate = 'date_obtention_' . $key;
+
+            // Vérifier si la colonne existe et est à 1/oui
+            if (!isset($row[$colFait]) || !$this->parseBool($row[$colFait])) {
+                continue;
+            }
+
+            // Trouver le certificat en base
+            $certificat = Certificat::where('nom_certificat', $nomCertificat)->first();
+            if (!$certificat) {
+                Log::warning("Certificat non trouvé en base : {$nomCertificat} (colonne: {$colFait})");
+                continue;
+            }
+
+            // Préparer la date d'obtention
+            $dateObtention = $this->parseDate($row[$colDate] ?? null);
+
+            // Attacher ou mettre à jour le pivot
+            $militaire->certificats()->syncWithoutDetaching([
+                $certificat->id => [
+                    'date_obtention' => $dateObtention,
+                ]
+            ]);
+        }
     }
 
     public function rules(): array
     {
         return [
-            'matricule' => 'required|string',
+            'matricule' => 'required|string|max:50',
             'nom' => 'required|string|max:100',
             'prenom' => 'required|string|max:100',
+            'date_naissance' => 'nullable',
+            'date_entree_service' => 'nullable',
+            'grade_actuel' => 'nullable|string',
+            'date_derniere_promotion' => 'nullable',
+            'specialite' => 'nullable|string|max:255',
+            'statut' => 'nullable|string',
+            'sexe' => 'nullable|string',
+            'telephone' => 'nullable|max:50',
+            'groupe_sanguin' => 'nullable|string|max:10',
+            'personne_a_contacter' => 'nullable|string|max:255',
+            'telephone_personne_contacter' => 'nullable|max:50',
+            'position_actuelle' => 'nullable|string|max:255',
+            'fonction_passee' => 'nullable|string|max:255',
+            'fonction_actuelle' => 'nullable|string|max:255',
+            'a_permis_conduire' => 'nullable',
+            'a_fait_justice' => 'nullable',
+            'a_fait_discipline' => 'nullable',
+            // Certificats sous-officiers
+            'a_fait_cat1' => 'nullable',
+            'date_obtention_cat1' => 'nullable',
+            'a_fait_cat2' => 'nullable',
+            'date_obtention_cat2' => 'nullable',
+            'a_fait_cia' => 'nullable',
+            'date_obtention_cia' => 'nullable',
+            'a_fait_ba1' => 'nullable',
+            'date_obtention_ba1' => 'nullable',
+            'a_fait_ba2' => 'nullable',
+            'date_obtention_ba2' => 'nullable',
+            'a_fait_bmp1' => 'nullable',
+            'date_obtention_bmp1' => 'nullable',
+            'a_fait_bmp2' => 'nullable',
+            'date_obtention_bmp2' => 'nullable',
+            'a_fait_bs' => 'nullable',
+            'date_obtention_bs' => 'nullable',
+            'a_fait_ct2' => 'nullable',
+            'date_obtention_ct2' => 'nullable',
+            // Formations officiers
+            'a_fait_apli' => 'nullable',
+            'date_obtention_apli' => 'nullable',
+            'a_fait_cfcu' => 'nullable',
+            'date_obtention_cfcu' => 'nullable',
+            'a_fait_cpo' => 'nullable',
+            'date_obtention_cpo' => 'nullable',
+            'a_fait_cem' => 'nullable',
+            'date_obtention_cem' => 'nullable',
+            'a_fait_certificat_etat_major' => 'nullable',
+            'date_obtention_certificat_etat_major' => 'nullable',
+            'a_fait_ecole_guerre' => 'nullable',
+            'date_obtention_ecole_guerre' => 'nullable',
         ];
     }
 
@@ -133,6 +375,11 @@ class MilitairesImport implements ToCollection, WithHeadingRow, WithValidation, 
         return $this->duplicates;
     }
 
+    public function getErrorDetails(): array
+    {
+        return $this->errorDetails;
+    }
+
     public function getImportedCount(): int
     {
         return $this->summary['created'];
@@ -141,5 +388,120 @@ class MilitairesImport implements ToCollection, WithHeadingRow, WithValidation, 
     public function getSkippedCount(): int
     {
         return $this->summary['skipped'];
+    }
+
+    /**
+     * Retourne les en-têtes de colonnes pour le modèle d'import
+     */
+    public static function getTemplateHeaders(): array
+    {
+        return [
+            // Informations personnelles
+            'matricule',
+            'nom',
+            'prenom',
+            'date_naissance',
+            'sexe',
+            'telephone',
+            'groupe_sanguin',
+            'personne_a_contacter',
+            'telephone_personne_contacter',
+            // Informations professionnelles
+            'date_entree_service',
+            'grade_actuel',
+            'date_derniere_promotion',
+            'specialite',
+            'statut',
+            // Fonctions et positions
+            'position_actuelle',
+            'fonction_passee',
+            'fonction_actuelle',
+            // Permis et justice
+            'a_permis_conduire',
+            'a_fait_justice',
+            'a_fait_discipline',
+            // Certificats sous-officiers
+            'a_fait_cat1',
+            'date_obtention_cat1',
+            'a_fait_cat2',
+            'date_obtention_cat2',
+            'a_fait_cia',
+            'date_obtention_cia',
+            'a_fait_ba1',
+            'date_obtention_ba1',
+            'a_fait_ba2',
+            'date_obtention_ba2',
+            'a_fait_bmp1',
+            'date_obtention_bmp1',
+            'a_fait_bmp2',
+            'date_obtention_bmp2',
+            'a_fait_bs',
+            'date_obtention_bs',
+            'a_fait_ct2',
+            'date_obtention_ct2',
+            // Formations officiers
+            'a_fait_apli',
+            'date_obtention_apli',
+            'a_fait_cfcu',
+            'date_obtention_cfcu',
+            'a_fait_cpo',
+            'date_obtention_cpo',
+            'a_fait_cem',
+            'date_obtention_cem',
+            'a_fait_certificat_etat_major',
+            'date_obtention_certificat_etat_major',
+            'a_fait_ecole_guerre',
+            'date_obtention_ecole_guerre',
+        ];
+    }
+
+    /**
+     * Retourne un exemple de données pour le modèle d'import
+     */
+    public static function getTemplateExampleRow(): array
+    {
+        return [
+            // Informations personnelles
+            'MAT-001',
+            'DUPONT',
+            'Jean',
+            '15/03/1990',
+            'Masculin',
+            '77000000',
+            'A+',
+            'Marie Dupont',
+            '77111111',
+            // Informations professionnelles
+            '01/09/2010',
+            'Sergent',
+            '15/06/2020',
+            'Infanterie',
+            'actif',
+            // Fonctions et positions
+            'Compagnie Alpha',
+            'Chef de section',
+            'Adjoint compagnie',
+            // Permis et justice
+            '1',
+            '0',
+            '0',
+            // Certificats sous-officiers
+            '1', '15/03/2015',  // cat1
+            '1', '20/06/2017',  // cat2
+            '0', '',            // cia
+            '1', '10/01/2018',  // ba1
+            '0', '',            // ba2
+            '1', '05/09/2019',  // bmp1
+            '0', '',            // bmp2
+            '0', '',            // bs
+            '0', '',            // ct2
+            // Formations officiers
+            '0', '',            // apli
+            '0', '',            // cfcu
+            '0', '',            // cpo
+            '0', '',            // cem
+            '0', '',            // certificat_etat_major
+            '0', '',            // ecole_guerre
+        ];
     }
 }

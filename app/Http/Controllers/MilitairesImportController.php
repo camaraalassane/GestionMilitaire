@@ -17,6 +17,10 @@ class MilitairesImportController extends Controller
 
     public function process(Request $request)
     {
+        // Augmenter le temps d'exécution et la mémoire pour les gros fichiers
+        set_time_limit(300);
+        ini_set('memory_limit', '512M');
+
         $request->validate([
             'fichier' => 'required|file|mimes:xlsx,xls,csv|max:10240',
             'duplicate_action' => 'sometimes|in:ignore,update',

@@ -279,6 +279,9 @@ class MilitairesImport implements ToCollection, WithHeadingRow, WithValidation, 
      */
     protected function attachCertificates(Militaire $militaire, array $row): void
     {
+        $certificatsCache = $this->getCertificatsCache();
+        $syncData = [];
+
         foreach (self::CERTIFICATE_MAPPING as $key => $nomCertificat) {
             $colFait = 'a_fait_' . $key;
             $colDate = 'date_obtention_' . $key;
@@ -288,8 +291,8 @@ class MilitairesImport implements ToCollection, WithHeadingRow, WithValidation, 
                 continue;
             }
 
-            // Trouver le certificat en base
-            $certificat = Certificat::where('nom_certificat', $nomCertificat)->first();
+            // Trouver le certificat depuis le cache en mémoire
+            $certificat = $certificatsCache->get($nomCertificat);
             if (!$certificat) {
                 Log::warning("Certificat non trouvé en base : {$nomCertificat} (colonne: {$colFait})");
                 continue;
@@ -298,12 +301,13 @@ class MilitairesImport implements ToCollection, WithHeadingRow, WithValidation, 
             // Préparer la date d'obtention
             $dateObtention = $this->parseDate($row[$colDate] ?? null);
 
-            // Attacher ou mettre à jour le pivot
-            $militaire->certificats()->syncWithoutDetaching([
-                $certificat->id => [
-                    'date_obtention' => $dateObtention,
-                ]
-            ]);
+            $syncData[$certificat->id] = [
+                'date_obtention' => $dateObtention,
+            ];
+        }
+
+        if (!empty($syncData)) {
+            $militaire->certificats()->syncWithoutDetaching($syncData);
         }
     }
 

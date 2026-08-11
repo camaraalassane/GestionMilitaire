@@ -16,8 +16,26 @@ class CertificatSeeder extends Seeder
         $dateDefault = Carbon::parse('2026-03-07 02:41:21');
 
         $certificats = [
+            // --- SOUS-OFFICIERS & MILITAIRES DU RANG (Ordre de carrière) ---
             [
                 'id' => 1,
+                'nom_certificat' => 'Brevet Élémentaire (BE)',
+                'niveau_certificat' => 'BE',
+                'grade_associe' => 'Soldat 1',
+                'conditions' => [
+                    'grade_requis' => 'Soldat 2',
+                    'pas_de_probleme_disciplinaire' => true,
+                    'pas_de_probleme_judiciaire' => true,
+                    'pas_deserteur' => true
+                ],
+                'anciennete_requise' => null,
+                'certificat_precedent' => null,
+                'duree_certificat_precedent' => null,
+                'created_at' => $dateDefault,
+                'updated_at' => $dateDefault
+            ],
+            [
+                'id' => 2,
                 'nom_certificat' => "Certificat d'Aptitude Technique Niveau 1",
                 'niveau_certificat' => 'CAT1',
                 'grade_associe' => 'Caporal',
@@ -35,7 +53,7 @@ class CertificatSeeder extends Seeder
                 'updated_at' => $dateDefault
             ],
             [
-                'id' => 2,
+                'id' => 3,
                 'nom_certificat' => "Certificat d'Aptitude Technique Niveau 2",
                 'niveau_certificat' => 'CAT2',
                 'grade_associe' => 'Sergent',
@@ -50,23 +68,6 @@ class CertificatSeeder extends Seeder
                 'anciennete_requise' => null,
                 'certificat_precedent' => 'CAT1',
                 'duree_certificat_precedent' => 3,
-                'created_at' => $dateDefault,
-                'updated_at' => $dateDefault
-            ],
-            [
-                'id' => 3,
-                'nom_certificat' => 'Brevet Élémentaire (BE)',
-                'niveau_certificat' => 'BE',
-                'grade_associe' => 'Soldat 1',
-                'conditions' => [
-                    'grade_requis' => 'Soldat 2',
-                    'pas_de_probleme_disciplinaire' => true,
-                    'pas_de_probleme_judiciaire' => true,
-                    'pas_deserteur' => true
-                ],
-                'anciennete_requise' => null,
-                'certificat_precedent' => null,
-                'duree_certificat_precedent' => null,
                 'created_at' => $dateDefault,
                 'updated_at' => $dateDefault
             ],
@@ -129,46 +130,6 @@ class CertificatSeeder extends Seeder
             ],
             [
                 'id' => 7,
-                'nom_certificat' => 'Brevet Militaire Professionnel N1',
-                'niveau_certificat' => 'BMP1',
-                'grade_associe' => 'Adjudant-Chef',
-                'conditions' => [
-                    'grade_min' => 'Adjudant',
-                    'certificat_requis' => 'BA1',
-                    'duree_certificat' => 3,
-                    'certificat_complementaire' => 'CIA',
-                    'pas_de_probleme_disciplinaire' => true,
-                    'pas_de_probleme_judiciaire' => true,
-                    'pas_deserteur' => true
-                ],
-                'anciennete_requise' => null,
-                'certificat_precedent' => 'BA1',
-                'duree_certificat_precedent' => 3,
-                'created_at' => $dateDefault,
-                'updated_at' => $dateDefault
-            ],
-            [
-                'id' => 8,
-                'nom_certificat' => 'Brevet Militaire Professionnel N2',
-                'niveau_certificat' => 'BMP2',
-                'grade_associe' => 'Adjudant-Chef',
-                'conditions' => [
-                    'grade_min' => 'Adjudant',
-                    'certificat_requis' => 'BA1',
-                    'duree_certificat' => 3,
-                    'certificat_complementaire' => 'CIA',
-                    'pas_de_probleme_disciplinaire' => true,
-                    'pas_de_probleme_judiciaire' => true,
-                    'pas_deserteur' => true
-                ],
-                'anciennete_requise' => null,
-                'certificat_precedent' => 'BA1',
-                'duree_certificat_precedent' => 3,
-                'created_at' => $dateDefault,
-                'updated_at' => $dateDefault
-            ],
-            [
-                'id' => 9,
                 'nom_certificat' => 'Certificat Technique N1 (CT1)',
                 'niveau_certificat' => 'CT1',
                 'grade_associe' => 'Adjudant',
@@ -188,9 +149,49 @@ class CertificatSeeder extends Seeder
                 'updated_at' => $dateDefault
             ],
             [
-                'id' => 10,
+                'id' => 8,
                 'nom_certificat' => 'Certificat Technique N2',
                 'niveau_certificat' => 'CT2',
+                'grade_associe' => 'Adjudant-Chef',
+                'conditions' => [
+                    'grade_min' => 'Adjudant',
+                    'certificat_requis' => 'BA1',
+                    'duree_certificat' => 3,
+                    'certificat_complementaire' => 'CIA',
+                    'pas_de_probleme_disciplinaire' => true,
+                    'pas_de_probleme_judiciaire' => true,
+                    'pas_deserteur' => true
+                ],
+                'anciennete_requise' => null,
+                'certificat_precedent' => 'BA1',
+                'duree_certificat_precedent' => 3,
+                'created_at' => $dateDefault,
+                'updated_at' => $dateDefault
+            ],
+            [
+                'id' => 9,
+                'nom_certificat' => 'Brevet Militaire Professionnel N1',
+                'niveau_certificat' => 'BMP1',
+                'grade_associe' => 'Adjudant-Chef',
+                'conditions' => [
+                    'grade_min' => 'Adjudant',
+                    'certificat_requis' => 'BA1',
+                    'duree_certificat' => 3,
+                    'certificat_complementaire' => 'CIA',
+                    'pas_de_probleme_disciplinaire' => true,
+                    'pas_de_probleme_judiciaire' => true,
+                    'pas_deserteur' => true
+                ],
+                'anciennete_requise' => null,
+                'certificat_precedent' => 'BA1',
+                'duree_certificat_precedent' => 3,
+                'created_at' => $dateDefault,
+                'updated_at' => $dateDefault
+            ],
+            [
+                'id' => 10,
+                'nom_certificat' => 'Brevet Militaire Professionnel N2',
+                'niveau_certificat' => 'BMP2',
                 'grade_associe' => 'Adjudant-Chef',
                 'conditions' => [
                     'grade_min' => 'Adjudant',
@@ -227,6 +228,8 @@ class CertificatSeeder extends Seeder
                 'created_at' => $dateDefault,
                 'updated_at' => $dateDefault
             ],
+
+            // --- FORMATIONS OFFICIERS ---
             [
                 'id' => 12,
                 'nom_certificat' => "Cour d'Application",

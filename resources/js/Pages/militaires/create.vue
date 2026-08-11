@@ -530,13 +530,17 @@ watch(() => form.certificats, (newVal) => {
 
 const getNiveauStyle = (niveau) => {
     const styles = {
+        'BE':   { background: '#e0f2fe', color: '#0369a1' },
         'CAT1': { background: '#7dd3fc', color: '#0369a1' },
         'CAT2': { background: '#38bdf8', color: '#075985' },
-        'CIA': { background: '#22d3ee', color: '#0e7490' },
-        'BSP': { background: '#fdba74', color: '#c2410c' },
-        'BSG': { background: '#fca5a5', color: '#b91c1c' },
-        'BSC': { background: '#9ca3af', color: '#374151' },
-        'CSG': { background: '#c4b5fd', color: '#5b21b6' }
+        'CIA':  { background: '#22d3ee', color: '#0e7490' },
+        'BA1':  { background: '#a7f3d0', color: '#047857' },
+        'BA2':  { background: '#6ee7b7', color: '#065f46' },
+        'BMP1': { background: '#fde68a', color: '#b45309' },
+        'BMP2': { background: '#fcd34d', color: '#92400e' },
+        'BS':   { background: '#fed7aa', color: '#c2410c' },
+        'CT1':  { background: '#ddd6fe', color: '#6d28d9' },
+        'CT2':  { background: '#c4b5fd', color: '#5b21b6' },
     };
     return styles[niveau] || { background: '#bae6fd', color: '#0369a1' };
 };

@@ -421,13 +421,12 @@ const groupeSanguinOptions = [
 ];
 
 const formationsOfficiers = [
-    'APLI', 'CFCU', 'CEM', 'Certificat État-major',
-    'Certificat d\'état-major', 'École d\'État-Major', 'ESM',
+    'APLI', 'CFCU', 'Certificat État-major',
+    'Certificat d\'état-major', 'École d\'État-Major', 'EEM',
     'Cours supérieur d\'état-major', 'École de guerre',
     'Brevet Supérieur de Second Degré',
     'École de guerre / Brevet Supérieur de Second Degré',
-    'Cour d\'Application', 'Cour des Futurs Commandants d\'Unité',
-    'Cour d\'état-major'
+    'Cour d\'Application', 'Cour des Futurs Commandants d\'Unité'
 ];
 
 const officierTypes = ['officier général', 'officier supérieur', 'officier subalterne'];

@@ -289,8 +289,8 @@ class CertificatSeeder extends Seeder
             ],
             [
                 'id' => 15,
-                'nom_certificat' => "École d'État-Major (ESM)",
-                'niveau_certificat' => 'ESM',
+                'nom_certificat' => "École d'État-Major (EEM)",
+                'niveau_certificat' => 'EEM',
                 'grade_associe' => 'Officier supérieur',
                 'conditions' => [
                     'grade_min' => 'Capitaine',
@@ -309,10 +309,10 @@ class CertificatSeeder extends Seeder
                 'grade_associe' => 'Lieutenant-colonel',
                 'conditions' => [
                     'grade_min' => 'Commandant',
-                    'certificat_precedent' => 'ESM'
+                    'certificat_precedent' => 'EEM'
                 ],
                 'anciennete_requise' => null,
-                'certificat_precedent' => 'ESM',
+                'certificat_precedent' => 'EEM',
                 'duree_certificat_precedent' => 3,
                 'created_at' => $dateDefault,
                 'updated_at' => $dateDefault

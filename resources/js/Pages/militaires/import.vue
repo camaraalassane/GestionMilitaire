@@ -292,6 +292,12 @@
                                                         </li>
                                                         <li>
                                                             <code
+                                                                class="bg-gray-100 px-2 py-1 rounded text-sky-600">a_fait_be</code>
+                                                            + <code
+                                                                class="bg-gray-100 px-2 py-1 rounded text-sky-600">date_obtention_be</code>
+                                                        </li>
+                                                        <li>
+                                                            <code
                                                                 class="bg-gray-100 px-2 py-1 rounded text-sky-600">a_fait_ba1</code>
                                                             + <code
                                                                 class="bg-gray-100 px-2 py-1 rounded text-sky-600">date_obtention_ba1</code>
@@ -319,6 +325,12 @@
                                                                 class="bg-gray-100 px-2 py-1 rounded text-sky-600">a_fait_bs</code>
                                                             + <code
                                                                 class="bg-gray-100 px-2 py-1 rounded text-sky-600">date_obtention_bs</code>
+                                                        </li>
+                                                        <li>
+                                                            <code
+                                                                class="bg-gray-100 px-2 py-1 rounded text-sky-600">a_fait_ct1</code>
+                                                            + <code
+                                                                class="bg-gray-100 px-2 py-1 rounded text-sky-600">date_obtention_ct1</code>
                                                         </li>
                                                         <li>
                                                             <code

@@ -18,23 +18,6 @@ class CertificatSeeder extends Seeder
         $certificats = [
             [
                 'id' => 1,
-                'nom_certificat' => 'Brevet Élémentaire (BE)',
-                'niveau_certificat' => 'BE',
-                'grade_associe' => 'Soldat 1',
-                'conditions' => [
-                    'grade_requis' => 'Soldat 2',
-                    'pas_de_probleme_disciplinaire' => true,
-                    'pas_de_probleme_judiciaire' => true,
-                    'pas_deserteur' => true
-                ],
-                'anciennete_requise' => null,
-                'certificat_precedent' => null,
-                'duree_certificat_precedent' => null,
-                'created_at' => $dateDefault,
-                'updated_at' => $dateDefault
-            ],
-            [
-                'id' => 2,
                 'nom_certificat' => "Certificat d'Aptitude Technique Niveau 1",
                 'niveau_certificat' => 'CAT1',
                 'grade_associe' => 'Caporal',
@@ -52,7 +35,7 @@ class CertificatSeeder extends Seeder
                 'updated_at' => $dateDefault
             ],
             [
-                'id' => 3,
+                'id' => 2,
                 'nom_certificat' => "Certificat d'Aptitude Technique Niveau 2",
                 'niveau_certificat' => 'CAT2',
                 'grade_associe' => 'Sergent',
@@ -71,7 +54,7 @@ class CertificatSeeder extends Seeder
                 'updated_at' => $dateDefault
             ],
             [
-                'id' => 4,
+                'id' => 3,
                 'nom_certificat' => "Certificat Interarmes (CIA)",
                 'niveau_certificat' => 'CIA',
                 'grade_associe' => 'Sergent-Chef',
@@ -84,6 +67,23 @@ class CertificatSeeder extends Seeder
                 ],
                 'anciennete_requise' => null,
                 'certificat_precedent' => 'CAT2',
+                'duree_certificat_precedent' => null,
+                'created_at' => $dateDefault,
+                'updated_at' => $dateDefault
+            ],
+            [
+                'id' => 4,
+                'nom_certificat' => 'Brevet Élémentaire (BE)',
+                'niveau_certificat' => 'BE',
+                'grade_associe' => 'Soldat 1',
+                'conditions' => [
+                    'grade_requis' => 'Soldat 2',
+                    'pas_de_probleme_disciplinaire' => true,
+                    'pas_de_probleme_judiciaire' => true,
+                    'pas_deserteur' => true
+                ],
+                'anciennete_requise' => null,
+                'certificat_precedent' => null,
                 'duree_certificat_precedent' => null,
                 'created_at' => $dateDefault,
                 'updated_at' => $dateDefault

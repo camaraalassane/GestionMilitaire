@@ -55,6 +55,23 @@ class CertificatSeeder extends Seeder
             ],
             [
                 'id' => 3,
+                'nom_certificat' => 'Brevet Élémentaire (BE)',
+                'niveau_certificat' => 'BE',
+                'grade_associe' => 'Soldat 1',
+                'conditions' => [
+                    'grade_requis' => 'Soldat 2',
+                    'pas_de_probleme_disciplinaire' => true,
+                    'pas_de_probleme_judiciaire' => true,
+                    'pas_deserteur' => true
+                ],
+                'anciennete_requise' => null,
+                'certificat_precedent' => null,
+                'duree_certificat_precedent' => null,
+                'created_at' => $dateDefault,
+                'updated_at' => $dateDefault
+            ],
+            [
+                'id' => 4,
                 'nom_certificat' => "Certificat Interarmes (CIA)",
                 'niveau_certificat' => 'CIA',
                 'grade_associe' => 'Sergent-Chef',
@@ -67,23 +84,6 @@ class CertificatSeeder extends Seeder
                 ],
                 'anciennete_requise' => null,
                 'certificat_precedent' => 'CAT2',
-                'duree_certificat_precedent' => null,
-                'created_at' => $dateDefault,
-                'updated_at' => $dateDefault
-            ],
-            [
-                'id' => 4,
-                'nom_certificat' => 'Brevet Élémentaire (BE)',
-                'niveau_certificat' => 'BE',
-                'grade_associe' => 'Soldat 1',
-                'conditions' => [
-                    'grade_requis' => 'Soldat 2',
-                    'pas_de_probleme_disciplinaire' => true,
-                    'pas_de_probleme_judiciaire' => true,
-                    'pas_deserteur' => true
-                ],
-                'anciennete_requise' => null,
-                'certificat_precedent' => null,
                 'duree_certificat_precedent' => null,
                 'created_at' => $dateDefault,
                 'updated_at' => $dateDefault
@@ -169,26 +169,6 @@ class CertificatSeeder extends Seeder
             ],
             [
                 'id' => 9,
-                'nom_certificat' => 'Brevet Supérieur',
-                'niveau_certificat' => 'BS',
-                'grade_associe' => 'Adjudant-Chef',
-                'conditions' => [
-                    'grade_min' => 'Adjudant',
-                    'certificat_requis' => 'BA1',
-                    'duree_certificat' => 3,
-                    'certificat_complementaire' => 'CIA',
-                    'pas_de_probleme_disciplinaire' => true,
-                    'pas_de_probleme_judiciaire' => true,
-                    'pas_deserteur' => true
-                ],
-                'anciennete_requise' => null,
-                'certificat_precedent' => 'BA1',
-                'duree_certificat_precedent' => 3,
-                'created_at' => $dateDefault,
-                'updated_at' => $dateDefault
-            ],
-            [
-                'id' => 10,
                 'nom_certificat' => 'Certificat Technique N1 (CT1)',
                 'niveau_certificat' => 'CT1',
                 'grade_associe' => 'Adjudant',
@@ -208,9 +188,29 @@ class CertificatSeeder extends Seeder
                 'updated_at' => $dateDefault
             ],
             [
-                'id' => 11,
+                'id' => 10,
                 'nom_certificat' => 'Certificat Technique N2',
                 'niveau_certificat' => 'CT2',
+                'grade_associe' => 'Adjudant-Chef',
+                'conditions' => [
+                    'grade_min' => 'Adjudant',
+                    'certificat_requis' => 'BA1',
+                    'duree_certificat' => 3,
+                    'certificat_complementaire' => 'CIA',
+                    'pas_de_probleme_disciplinaire' => true,
+                    'pas_de_probleme_judiciaire' => true,
+                    'pas_deserteur' => true
+                ],
+                'anciennete_requise' => null,
+                'certificat_precedent' => 'BA1',
+                'duree_certificat_precedent' => 3,
+                'created_at' => $dateDefault,
+                'updated_at' => $dateDefault
+            ],
+            [
+                'id' => 11,
+                'nom_certificat' => 'Brevet Supérieur',
+                'niveau_certificat' => 'BS',
                 'grade_associe' => 'Adjudant-Chef',
                 'conditions' => [
                     'grade_min' => 'Adjudant',

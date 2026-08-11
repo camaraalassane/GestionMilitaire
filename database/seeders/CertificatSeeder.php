@@ -55,7 +55,7 @@ class CertificatSeeder extends Seeder
             ],
             [
                 'id' => 3,
-                'nom_certificat' => "Certificat d'Instruction d'Armes",
+                'nom_certificat' => "Certificat Interarmes (CIA)",
                 'niveau_certificat' => 'CIA',
                 'grade_associe' => 'Sergent-Chef',
                 'conditions' => [
@@ -73,7 +73,7 @@ class CertificatSeeder extends Seeder
             ],
             [
                 'id' => 4,
-                'nom_certificat' => "Brevet d'Aptitude Niveau 1",
+                'nom_certificat' => "Brevet d'Arme N1",
                 'niveau_certificat' => 'BA1',
                 'grade_associe' => 'Adjudant',
                 'conditions' => [
@@ -93,7 +93,7 @@ class CertificatSeeder extends Seeder
             ],
             [
                 'id' => 5,
-                'nom_certificat' => "Brevet d'Aptitude Niveau 2",
+                'nom_certificat' => "Brevet d'Arme N2",
                 'niveau_certificat' => 'BA2',
                 'grade_associe' => 'Adjudant-Chef',
                 'conditions' => [
@@ -112,7 +112,7 @@ class CertificatSeeder extends Seeder
             ],
             [
                 'id' => 6,
-                'nom_certificat' => 'Brevet Militaire Professionnel niveau 1',
+                'nom_certificat' => 'Brevet Militaire Professionnel N1',
                 'niveau_certificat' => 'BMP1',
                 'grade_associe' => 'Adjudant-Chef',
                 'conditions' => [
@@ -132,7 +132,7 @@ class CertificatSeeder extends Seeder
             ],
             [
                 'id' => 7,
-                'nom_certificat' => 'Brevet Militaire Professionnel niveau 2',
+                'nom_certificat' => 'Brevet Militaire Professionnel N2',
                 'niveau_certificat' => 'BMP2',
                 'grade_associe' => 'Adjudant-Chef',
                 'conditions' => [
@@ -152,7 +152,7 @@ class CertificatSeeder extends Seeder
             ],
             [
                 'id' => 8,
-                'nom_certificat' => 'Brevet de Spécialité',
+                'nom_certificat' => 'Brevet Supérieur',
                 'niveau_certificat' => 'BS',
                 'grade_associe' => 'Adjudant-Chef',
                 'conditions' => [
@@ -171,8 +171,28 @@ class CertificatSeeder extends Seeder
                 'updated_at' => $dateDefault
             ],
             [
+                'id' => 18,
+                'nom_certificat' => 'Certificat Technique N1 (CT1)',
+                'niveau_certificat' => 'CT1',
+                'grade_associe' => 'Adjudant',
+                'conditions' => [
+                    'grade_min' => 'Sergent-Chef',
+                    'certificat_cia' => true,
+                    'duree_cia' => 3,
+                    'anciennete_service' => 8,
+                    'pas_de_probleme_disciplinaire' => true,
+                    'pas_de_probleme_judiciaire' => true,
+                    'pas_deserteur' => true
+                ],
+                'anciennete_requise' => 8,
+                'certificat_precedent' => 'CIA',
+                'duree_certificat_precedent' => 3,
+                'created_at' => $dateDefault,
+                'updated_at' => $dateDefault
+            ],
+            [
                 'id' => 9,
-                'nom_certificat' => 'Certificat Technique niveau 2',
+                'nom_certificat' => 'Certificat Technique N2',
                 'niveau_certificat' => 'CT2',
                 'grade_associe' => 'Adjudant-Chef',
                 'conditions' => [
@@ -228,26 +248,7 @@ class CertificatSeeder extends Seeder
                 'created_at' => $dateDefault,
                 'updated_at' => $dateDefault
             ],
-            [
-                'id' => 12,
-                'nom_certificat' => "Cour d'état-major",
-                'niveau_certificat' => 'CEM',
-                'grade_associe' => 'Lieutenant-colonel',
-                'conditions' => [
-                    'or' => [
-                        ['grade_min' => 'Capitaine', 'anciennete_grade_min' => 3],
-                        ['grade_min' => 'Commandant', 'age_max' => 45]
-                    ],
-                    'pas_de_probleme_disciplinaire' => true,
-                    'pas_de_probleme_judiciaire' => true,
-                    'pas_deserteur' => true
-                ],
-                'anciennete_requise' => null,
-                'certificat_precedent' => null,
-                'duree_certificat_precedent' => null,
-                'created_at' => $dateDefault,
-                'updated_at' => $dateDefault
-            ],
+
             [
                 'id' => 13,
                 'nom_certificat' => "Certificat d'état-major",
@@ -316,6 +317,24 @@ class CertificatSeeder extends Seeder
                 'created_at' => $dateDefault,
                 'updated_at' => $dateDefault
             ],
+            [
+                'id' => 17,
+                'nom_certificat' => 'Brevet Élémentaire (BE)',
+                'niveau_certificat' => 'BE',
+                'grade_associe' => 'Soldat 1',
+                'conditions' => [
+                    'grade_requis' => 'Soldat 2',
+                    'pas_de_probleme_disciplinaire' => true,
+                    'pas_de_probleme_judiciaire' => true,
+                    'pas_deserteur' => true
+                ],
+                'anciennete_requise' => null,
+                'certificat_precedent' => null,
+                'duree_certificat_precedent' => null,
+                'created_at' => $dateDefault,
+                'updated_at' => $dateDefault
+            ],
+
         ];
 
         foreach ($certificats as $certificat) {

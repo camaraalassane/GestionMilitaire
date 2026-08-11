@@ -914,19 +914,19 @@ class MilitaireController extends Controller
     // 5. CIA
     Alerte::where('militaire_id', $militaire->id)
         ->where('type_alerte', 'formation')
-        ->where('message', 'LIKE', "%Certificat d'Instruction d'Armes%")
+        ->where('message', 'LIKE', "%Certificat Interarmes%")
         ->delete();
 
     if (!in_array('CIA', $certificatsObtenus)) {
         if (in_array($grade, ['Sergent', 'Sergent-Chef', 'Adjudant', 'Adjudant-Chef']) && $conditionsBase && $militaire->a_permis_conduire) {
-            $this->creerAlerteFormation($militaire, 'CIA', "Certificat d'Instruction d'Armes", $dateProposition, null);
+            $this->creerAlerteFormation($militaire, 'CIA', "Certificat Interarmes (CIA)", $dateProposition, null);
         }
     }
 
     // 6. BA1
     Alerte::where('militaire_id', $militaire->id)
         ->where('type_alerte', 'formation')
-        ->where('message', 'LIKE', "%Brevet d'Aptitude Niveau 1%")
+        ->where('message', 'LIKE', "%Brevet d'Arme N1%")
         ->delete();
 
     if (!in_array('BA1', $certificatsObtenus)) {
@@ -936,14 +936,14 @@ class MilitaireController extends Controller
             if ($certifCIA && $certifCIA->pivot->date_obtention) {
                 $dateConditions = Carbon::parse($certifCIA->pivot->date_obtention)->addYears(3);
             }
-            $this->creerAlerteFormation($militaire, 'BA1', "Brevet d'Aptitude Niveau 1", $dateProposition, $dateConditions);
+            $this->creerAlerteFormation($militaire, 'BA1', "Brevet d'Arme N1", $dateProposition, $dateConditions);
         }
     }
 
     // 7. BA2
     Alerte::where('militaire_id', $militaire->id)
         ->where('type_alerte', 'formation')
-        ->where('message', 'LIKE', "%Brevet d'Aptitude Niveau 2%")
+        ->where('message', 'LIKE', "%Brevet d'Arme N2%")
         ->delete();
 
     if (!in_array('BA2', $certificatsObtenus)) {
@@ -953,25 +953,11 @@ class MilitaireController extends Controller
             if ($certifBA1 && $certifBA1->pivot->date_obtention) {
                 $dateConditions = Carbon::parse($certifBA1->pivot->date_obtention)->addYears(3);
             }
-            $this->creerAlerteFormation($militaire, 'BA2', "Brevet d'Aptitude Niveau 2", $dateProposition, $dateConditions);
+            $this->creerAlerteFormation($militaire, 'BA2', "Brevet d'Arme N2", $dateProposition, $dateConditions);
         }
     }
 
-    // 8. CEM  (attention : distinct de "Certificat d'État-Major" ci-dessous)
-    Alerte::where('militaire_id', $militaire->id)
-        ->where('type_alerte', 'formation')
-        ->where('message', 'LIKE', "%Cour d'État-Major%")
-        ->delete();
 
-    if (!in_array('CEM', $certificatsObtenus)) {
-        if (in_array($grade, ['Capitaine', 'Commandant'])) {
-            if (($grade == 'Capitaine' && $ancienneteGrade >= 3) || $grade == 'Commandant') {
-                if ($age <= 45) {
-                    $this->creerAlerteFormation($militaire, 'CEM', "Cour d'État-Major", $dateProposition, null);
-                }
-            }
-        }
-    }
 
     // 9. CERT_EM
     Alerte::where('militaire_id', $militaire->id)

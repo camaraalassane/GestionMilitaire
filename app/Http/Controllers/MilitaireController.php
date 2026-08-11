@@ -116,7 +116,7 @@ class MilitaireController extends Controller
             'type_grade' => $grade->type_grade,
         ]);
 
-        $certificats = Certificat::all()->map(fn ($certificat) => [
+        $certificats = Certificat::orderBy('id')->get()->map(fn ($certificat) => [
             'id' => $certificat->id,
             'nom_certificat' => $certificat->nom_certificat,
             'niveau_certificat' => $certificat->niveau_certificat,
@@ -253,7 +253,7 @@ class MilitaireController extends Controller
             'type_grade' => $grade->type_grade,
         ]);
 
-        $certificats = Certificat::all()->map(fn ($certificat) => [
+        $certificats = Certificat::orderBy('id')->get()->map(fn ($certificat) => [
             'id' => $certificat->id,
             'nom_certificat' => $certificat->nom_certificat,
             'niveau_certificat' => $certificat->niveau_certificat,

@@ -632,16 +632,12 @@ const submitForm = () => {
     ];
 
     textFields.forEach(field => {
-        if (form[field] !== null && form[field] !== undefined) {
-            formData.append(field, form[field]);
-        }
+        formData.append(field, (form[field] !== null && form[field] !== undefined) ? form[field] : '');
     });
 
     const dateFields = ['date_naissance', 'date_entree_service', 'date_derniere_promotion'];
     dateFields.forEach(field => {
-        if (form[field]) {
-            formData.append(field, formatDateForServer(form[field]));
-        }
+        formData.append(field, form[field] ? formatDateForServer(form[field]) : '');
     });
 
     formData.append('a_permis_conduire', form.a_permis_conduire ? '1' : '0');

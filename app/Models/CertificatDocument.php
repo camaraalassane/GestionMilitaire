@@ -16,10 +16,10 @@ class CertificatDocument extends Model
     ];
 
     /**
-     * Relation vers la table pivot militaire_certificat
+     * Relation vers l'enregistrement pivot dans la table certificat_militaire
      */
-    public function militaireCertificat(): BelongsTo
+    public function pivot()
     {
-        return $this->belongsTo(Militaire::class, 'militaire_certificat_id', 'id');
+        return $this->belongsTo(Certificat::class, 'militaire_certificat_id', 'id');
     }
 }

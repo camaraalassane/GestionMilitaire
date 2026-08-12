@@ -147,7 +147,10 @@ class MilitaireController extends Controller
             'groupe_sanguin' => 'nullable|string|max:3',
             'personne_a_contacter' => 'nullable|string|max:255',
             'telephone_personne_contacter' => 'nullable|string|max:20',
+            'statut' => 'required|in:actif,retraité,déserteur,décédé,démobilisé,formation,stage',
             'a_permis_conduire' => 'boolean',
+            'a_fait_justice' => 'boolean',
+            'a_fait_discipline' => 'boolean',
         ]);
 
         $data = $this->extractData($request);
@@ -423,13 +426,21 @@ class MilitaireController extends Controller
 
     private function extractData(Request $request, ?Militaire $militaire = null): array
     {
-        $data = $request->only([
+        $fields = [
             'matricule', 'nom', 'prenom', 'date_naissance', 'date_entree_service',
             'grade_actuel', 'date_derniere_promotion', 'specialite', 'statut',
             'position_actuelle', 'fonction_passee', 'fonction_actuelle',
             'telephone', 'sexe', 'groupe_sanguin', 'personne_a_contacter',
             'telephone_personne_contacter'
-        ]);
+        ];
+
+        $data = [];
+        foreach ($fields as $field) {
+            if ($request->has($field)) {
+                $val = $request->input($field);
+                $data[$field] = ($val === '' || $val === 'null' || $val === null) ? null : $val;
+            }
+        }
 
         $booleanFields = [
             'a_fait_cat1', 'a_fait_cat2', 'a_fait_cia', 'a_fait_ba1', 'a_fait_ba2',
@@ -440,34 +451,8 @@ class MilitaireController extends Controller
         ];
 
         foreach ($booleanFields as $field) {
-            $data[$field] = $request->boolean($field);
-        }
-
-        $dateFields = [
-            'date_obtention_cat1', 'date_obtention_cat2', 'date_obtention_cia',
-            'date_obtention_ba1', 'date_obtention_ba2', 'date_obtention_bmp1',
-            'date_obtention_bmp2', 'date_obtention_bs', 'date_obtention_ct2',
-            'date_obtention_apli', 'date_obtention_cfcu',
-            'date_obtention_cem', 'date_obtention_certificat_etat_major',
-            'date_obtention_ecole_guerre'
-        ];
-
-        foreach ($dateFields as $field) {
-            $data[$field] = $request->input($field);
-        }
-
-        foreach ($booleanFields as $boolField) {
-            if (!$data[$boolField]) {
-                $dateField = 'date_obtention_' . substr($boolField, 8);
-                if (isset($data[$dateField])) {
-                    $data[$dateField] = null;
-                }
-            }
-        }
-
-        foreach ($dateFields as $field) {
-            if (isset($data[$field]) && $data[$field] === '') {
-                $data[$field] = null;
+            if ($request->has($field)) {
+                $data[$field] = $request->boolean($field);
             }
         }
 
@@ -475,41 +460,59 @@ class MilitaireController extends Controller
     }
 
     /**
-     * Synchronise les certificats et gère les documents
+     * Synchronise les certificats et gère les documents de manière sécurisée sans supprimer les ID pivot existants.
      */
     private function syncCertificatsWithDocuments(Militaire $militaire, array $certificatsData)
     {
-        $syncData = [];
-        $documentsToProcess = [];
+        $existingCertificats = \DB::table('certificat_militaire')
+            ->where('militaire_id', $militaire->id)
+            ->pluck('id', 'certificat_id')
+            ->toArray();
 
         foreach ($certificatsData as $certificatId => $data) {
-            if (isset($data['obtenu']) && $data['obtenu']) {
-                $syncData[$certificatId] = [
-                    'date_obtention' => $data['date_obtention'] ?? null,
-                ];
+            $certificatId = (int) $certificatId;
+            $obtenu = isset($data['obtenu']) && ($data['obtenu'] === '1' || $data['obtenu'] === 1 || $data['obtenu'] === true || $data['obtenu'] === 'true');
+
+            if ($obtenu) {
+                $dateObtention = (!empty($data['date_obtention']) && $data['date_obtention'] !== 'null') ? $data['date_obtention'] : null;
+
+                if (isset($existingCertificats[$certificatId])) {
+                    $pivotId = $existingCertificats[$certificatId];
+                    \DB::table('certificat_militaire')
+                        ->where('id', $pivotId)
+                        ->update([
+                            'date_obtention' => $dateObtention,
+                            'updated_at' => now(),
+                        ]);
+                } else {
+                    $militaire->certificats()->attach($certificatId, [
+                        'date_obtention' => $dateObtention,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                    $pivotId = \DB::table('certificat_militaire')
+                        ->where('militaire_id', $militaire->id)
+                        ->where('certificat_id', $certificatId)
+                        ->value('id');
+                }
 
                 if (isset($data['document']) && $data['document']) {
-                    $documentsToProcess[$certificatId] = $data['document'];
+                    $this->handleCertificatDocument($pivotId, $data['document']);
+                }
+            } else {
+                if (isset($existingCertificats[$certificatId])) {
+                    $pivotId = $existingCertificats[$certificatId];
+                    $existingDoc = CertificatDocument::where('militaire_certificat_id', $pivotId)->first();
+                    if ($existingDoc) {
+                        if (Storage::disk('public')->exists($existingDoc->chemin_fichier)) {
+                            Storage::disk('public')->delete($existingDoc->chemin_fichier);
+                        }
+                        $existingDoc->delete();
+                    }
+                    \DB::table('certificat_militaire')->where('id', $pivotId)->delete();
                 }
             }
         }
-
-        // 1. Synchroniser les certificats (table pivot: militaire_certificat)
-        $militaire->certificats()->sync($syncData);
-
-        // 2. Traiter les documents après la synchronisation
-        foreach ($documentsToProcess as $certificatId => $documentData) {
-            $pivotId = $militaire->certificats()
-                ->where('certificat_id', $certificatId)
-                ->first()?->pivot?->id;
-
-            if ($pivotId) {
-                $this->handleCertificatDocument($pivotId, $documentData);
-            }
-        }
-
-        // 3. Nettoyer les documents orphelins (commenté temporairement pour éviter erreur SQLite)
-        // $this->cleanupOrphanDocuments($militaire);
     }
 
     /**

@@ -20,6 +20,19 @@
                                 </template>
 
                                 <template #content>
+                                    <!-- Bannière de résumé d'erreurs de validation -->
+                                    <div v-if="errors && Object.keys(errors).length > 0" class="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg shadow-sm">
+                                        <div class="flex items-center gap-2 mb-2 text-red-700 font-semibold">
+                                            <i class="pi pi-exclamation-triangle text-lg"></i>
+                                            <span>Erreurs détectées lors de la validation du formulaire :</span>
+                                        </div>
+                                        <ul class="list-disc list-inside text-sm text-red-600 space-y-1">
+                                            <li v-for="(err, field) in errors" :key="field">
+                                                <strong class="capitalize">{{ field }}</strong> : {{ Array.isArray(err) ? err.join(', ') : err }}
+                                            </li>
+                                        </ul>
+                                    </div>
+
                                     <!-- Informations générales -->
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                         <div class="field">
@@ -681,8 +694,12 @@ const submitForm = () => {
 };
 
 const formatDateForServer = (date) => {
-    if (!date) return null;
+    if (!date) return '';
+    if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return date;
+    }
     const d = new Date(date);
+    if (isNaN(d.getTime())) return '';
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');

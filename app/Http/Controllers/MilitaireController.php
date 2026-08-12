@@ -143,14 +143,14 @@ class MilitaireController extends Controller
             'fonction_passee' => 'nullable|string|max:255',
             'fonction_actuelle' => 'nullable|string|max:255',
             'telephone' => 'nullable|string|max:20',
-            'sexe' => 'nullable|string|max:1|in:M,F',
-            'groupe_sanguin' => 'nullable|string|max:3',
+            'sexe' => 'nullable|string|max:10',
+            'groupe_sanguin' => 'nullable|string|max:10',
             'personne_a_contacter' => 'nullable|string|max:255',
             'telephone_personne_contacter' => 'nullable|string|max:20',
-            'statut' => 'required|in:actif,retraité,déserteur,décédé,démobilisé,formation,stage',
-            'a_permis_conduire' => 'boolean',
-            'a_fait_justice' => 'boolean',
-            'a_fait_discipline' => 'boolean',
+            'statut' => 'required|string',
+            'a_permis_conduire' => 'nullable',
+            'a_fait_justice' => 'nullable',
+            'a_fait_discipline' => 'nullable',
         ]);
 
         $data = $this->extractData($request);
@@ -323,14 +323,14 @@ class MilitaireController extends Controller
             'fonction_passee' => 'nullable|string|max:255',
             'fonction_actuelle' => 'nullable|string|max:255',
             'telephone' => 'nullable|string|max:20',
-            'sexe' => 'nullable|string|max:1|in:M,F',
-            'groupe_sanguin' => 'nullable|string|max:3',
+            'sexe' => 'nullable|string|max:10',
+            'groupe_sanguin' => 'nullable|string|max:10',
             'personne_a_contacter' => 'nullable|string|max:255',
             'telephone_personne_contacter' => 'nullable|string|max:20',
-            'statut' => 'required|in:actif,retraité,déserteur,décédé,démobilisé,formation,stage',
-            'a_permis_conduire' => 'boolean',
-            'a_fait_justice' => 'boolean',
-            'a_fait_discipline' => 'boolean',
+            'statut' => 'required|string',
+            'a_permis_conduire' => 'nullable',
+            'a_fait_justice' => 'nullable',
+            'a_fait_discipline' => 'nullable',
         ]);
 
         $data = $this->extractData($request, $militaire);
